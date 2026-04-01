@@ -1,9 +1,12 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../models/onboarding_data.dart';
+import '../../services/onboarding_service.dart';
 
 class PhotoCaptureScreen extends StatefulWidget {
   final OnboardingData data;
@@ -17,9 +20,12 @@ class PhotoCaptureScreen extends StatefulWidget {
 class _PhotoCaptureScreenState extends State<PhotoCaptureScreen>
     with SingleTickerProviderStateMixin {
   bool _isAnalyzing = false;
+  File? _selectedImage;
 
   late AnimationController _pulseController;
   late Animation<double> _pulse;
+
+  final _picker = ImagePicker();
 
   @override
   void initState() {
@@ -42,15 +48,37 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen>
     super.dispose();
   }
 
-  Future<void> _capturePhoto() async {
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final picked = await _picker.pickImage(
+        source: source,
+        maxWidth: 1080,
+        maxHeight: 1080,
+        imageQuality: 85,
+      );
+      if (picked != null && mounted) {
+        setState(() => _selectedImage = File(picked.path));
+      }
+    } catch (_) {
+      // Camera/gallery not available on this platform — skip silently
+    }
+  }
+
+  Future<void> _analyze() async {
     setState(() => _isAnalyzing = true);
-    await Future.delayed(const Duration(milliseconds: 2200));
+    // Simulate AI analysis delay
+    await Future.delayed(const Duration(milliseconds: 2400));
+    if (mounted) {
+      context.go('/analysis-result', extra: widget.data);
+    }
+  }
+
+  Future<void> _skip() async {
+    await OnboardingService.save(widget.data);
     if (mounted) {
       context.go('/dashboard', extra: widget.data);
     }
   }
-
-  void _skip() => context.go('/dashboard', extra: widget.data);
 
   @override
   Widget build(BuildContext context) {
@@ -68,9 +96,9 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen>
         actions: [
           if (!_isAnalyzing)
             TextButton(
-              onPressed: _skip,
+              onPressed: () => _skip(),
               child: Text(
-                'Skip for now',
+                'Skip analysis for now',
                 style: AppTextStyles.labelLarge.copyWith(
                   color: AppColors.textSecondary,
                 ),
@@ -86,7 +114,6 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen>
           child: Column(
             children: [
               const SizedBox(height: 12),
-              // Header
               Text(
                 _isAnalyzing ? 'Analyzing your skin...' : 'Capture your skin',
                 style: AppTextStyles.displaySmall,
@@ -95,38 +122,27 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen>
               Text(
                 _isAnalyzing
                     ? 'Our AI is building your personalized profile'
-                    : 'A quick photo helps us personalize your analysis',
+                    : 'A clear photo helps us spot redness, pores, texture & more',
                 textAlign: TextAlign.center,
                 style: AppTextStyles.bodyMedium.copyWith(
                   color: AppColors.textSecondary,
                 ),
               ),
-              const SizedBox(height: 40),
-              // Face frame
+              const SizedBox(height: 32),
+              // Face frame / preview
               Expanded(
                 child: Center(
                   child: _isAnalyzing
                       ? _buildAnalyzingState()
-                      : _buildCameraFrame(),
+                      : _buildPhotoArea(),
                 ),
               ),
               if (!_isAnalyzing) ...[
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
                 _buildTipsRow(),
-                const SizedBox(height: 28),
+                const SizedBox(height: 24),
+                _buildActionButtons(),
               ],
-              if (!_isAnalyzing)
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: _capturePhoto,
-                    icon: const Icon(Icons.camera_alt_outlined, size: 20),
-                    label: Text('Take photo', style: AppTextStyles.button),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 18),
-                    ),
-                  ),
-                ),
               const SizedBox(height: 32),
             ],
           ),
@@ -135,7 +151,40 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen>
     );
   }
 
-  Widget _buildCameraFrame() {
+  Widget _buildPhotoArea() {
+    if (_selectedImage != null) {
+      return Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          ClipRRect(
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(120),
+              topRight: Radius.circular(120),
+              bottomLeft: Radius.circular(36),
+              bottomRight: Radius.circular(36),
+            ),
+            child: Image.file(
+              _selectedImage!,
+              width: 240,
+              height: 280,
+              fit: BoxFit.cover,
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextButton.icon(
+            onPressed: () => setState(() => _selectedImage = null),
+            icon: const Icon(Icons.refresh_rounded, size: 16),
+            label: Text(
+              'Choose a different photo',
+              style: AppTextStyles.labelLarge.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
     return AnimatedBuilder(
       animation: _pulse,
       builder: (context, child) => Transform.scale(
@@ -143,25 +192,25 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen>
         child: child,
       ),
       child: Container(
-        width: 260,
-        height: 300,
+        width: 240,
+        height: 280,
         decoration: BoxDecoration(
           color: AppColors.surfaceVariant,
           borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(130),
-            topRight: Radius.circular(130),
-            bottomLeft: Radius.circular(40),
-            bottomRight: Radius.circular(40),
+            topLeft: Radius.circular(120),
+            topRight: Radius.circular(120),
+            bottomLeft: Radius.circular(36),
+            bottomRight: Radius.circular(36),
           ),
           border: Border.all(
-            color: AppColors.primary.withValues(alpha: 0.3),
+            color: AppColors.primary.withValues(alpha: 0.25),
             width: 2,
           ),
           boxShadow: [
             BoxShadow(
-              color: AppColors.primary.withValues(alpha: 0.08),
-              blurRadius: 32,
-              offset: const Offset(0, 12),
+              color: AppColors.primary.withValues(alpha: 0.07),
+              blurRadius: 28,
+              offset: const Offset(0, 10),
             ),
           ],
         ),
@@ -169,19 +218,19 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 72,
-              height: 72,
+              width: 68,
+              height: 68,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: AppColors.primary.withValues(alpha: 0.1),
               ),
               child: const Icon(
                 Icons.face_outlined,
-                size: 40,
+                size: 36,
                 color: AppColors.primary,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
             Text(
               'Position your face\nwithin the frame',
               textAlign: TextAlign.center,
@@ -230,7 +279,7 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen>
         const SizedBox(height: 12),
         _buildAnalysisStep('Detecting pores & texture', true),
         const SizedBox(height: 12),
-        _buildAnalysisStep('Building your profile', false),
+        _buildAnalysisStep('Identifying concerns', false),
       ],
     );
   }
@@ -250,9 +299,8 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen>
           ),
           child: done
               ? const Icon(Icons.check, size: 12, color: AppColors.success)
-              : const SizedBox(
-                  width: 10,
-                  height: 10,
+              : const Padding(
+                  padding: EdgeInsets.all(3),
                   child: CircularProgressIndicator(
                     strokeWidth: 1.5,
                     color: AppColors.primary,
@@ -272,7 +320,7 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen>
 
   Widget _buildTipsRow() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppColors.primary.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(14),
@@ -282,9 +330,9 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen>
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _buildTipItem(Icons.wb_sunny_outlined, 'Natural\nlight'),
-          _buildTipDivider(),
+          Container(width: 1, height: 32, color: AppColors.border),
           _buildTipItem(Icons.face_outlined, 'No\nmakeup'),
-          _buildTipDivider(),
+          Container(width: 1, height: 32, color: AppColors.border),
           _buildTipItem(Icons.sentiment_neutral_outlined, 'Neutral\nexpression'),
         ],
       ),
@@ -294,7 +342,7 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen>
   Widget _buildTipItem(IconData icon, String label) {
     return Column(
       children: [
-        Icon(icon, size: 22, color: AppColors.primary),
+        Icon(icon, size: 20, color: AppColors.primary),
         const SizedBox(height: 4),
         Text(
           label,
@@ -305,7 +353,48 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen>
     );
   }
 
-  Widget _buildTipDivider() {
-    return Container(width: 1, height: 36, color: AppColors.border);
+  Widget _buildActionButtons() {
+    final hasImage = _selectedImage != null;
+
+    return Column(
+      children: [
+        // Primary: take photo or analyze
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: hasImage
+                ? _analyze
+                : () => _pickImage(ImageSource.camera),
+            icon: Icon(
+              hasImage ? Icons.auto_awesome_outlined : Icons.camera_alt_outlined,
+              size: 20,
+            ),
+            label: Text(
+              hasImage ? 'Analyze my skin' : 'Take photo',
+              style: AppTextStyles.button,
+            ),
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 18),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        // Secondary: choose from gallery
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () => _pickImage(ImageSource.gallery),
+            icon: const Icon(Icons.photo_library_outlined, size: 20),
+            label: Text(
+              'Choose from gallery',
+              style: AppTextStyles.button,
+            ),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }

@@ -1,29 +1,15 @@
+import 'skin_analysis.dart';
+
 /// Accumulated user answers collected throughout the onboarding flow.
-/// Passed between screens via GoRouter's `extra` parameter.
 class OnboardingData {
-  /// Why the user is here.
-  /// Values: 'build_routine' | 'optimize_routine' | 'track_progress' | 'fix_concern'
   final String? intent;
-
-  /// Primary skin goal.
-  /// Values: 'clear_skin' | 'fight_breakouts' | 'anti_aging' | 'even_tone' | 'hydration'
   final String? primaryGoal;
-
-  /// Skin type.
-  /// Values: 'oily' | 'dry' | 'combination' | 'normal' | 'sensitive'
   final String? skinType;
-
-  /// Primary concern from the skin quiz.
-  /// Values: 'acne' | 'aging' | 'dark_spots' | 'redness' | 'dullness'
   final String? concern;
-
-  /// Current routine level.
-  /// Values: 'none' | 'basic' | 'full' | 'advanced'
   final String? routineLevel;
-
-  /// Breakout frequency.
-  /// Values: 'frequently' | 'occasionally' | 'rarely' | 'never'
   final String? breakouts;
+  final List<String> currentProducts;
+  final SkinAnalysis? analysis;
 
   const OnboardingData({
     this.intent,
@@ -32,6 +18,8 @@ class OnboardingData {
     this.concern,
     this.routineLevel,
     this.breakouts,
+    this.currentProducts = const [],
+    this.analysis,
   });
 
   OnboardingData copyWith({
@@ -41,6 +29,8 @@ class OnboardingData {
     String? concern,
     String? routineLevel,
     String? breakouts,
+    List<String>? currentProducts,
+    SkinAnalysis? analysis,
   }) {
     return OnboardingData(
       intent: intent ?? this.intent,
@@ -49,10 +39,43 @@ class OnboardingData {
       concern: concern ?? this.concern,
       routineLevel: routineLevel ?? this.routineLevel,
       breakouts: breakouts ?? this.breakouts,
+      currentProducts: currentProducts ?? this.currentProducts,
+      analysis: analysis ?? this.analysis,
     );
   }
 
-  /// Human-readable intent label for UI display.
+  // ── Serialization ──────────────────────────────────────────────────────
+
+  Map<String, dynamic> toJson() => {
+        'intent': intent,
+        'primaryGoal': primaryGoal,
+        'skinType': skinType,
+        'concern': concern,
+        'routineLevel': routineLevel,
+        'breakouts': breakouts,
+        'currentProducts': currentProducts,
+        'analysis': analysis?.toJson(),
+      };
+
+  factory OnboardingData.fromJson(Map<String, dynamic> json) => OnboardingData(
+        intent: json['intent'] as String?,
+        primaryGoal: json['primaryGoal'] as String?,
+        skinType: json['skinType'] as String?,
+        concern: json['concern'] as String?,
+        routineLevel: json['routineLevel'] as String?,
+        breakouts: json['breakouts'] as String?,
+        currentProducts:
+            (json['currentProducts'] as List?)?.map((e) => e as String).toList() ??
+                const [],
+        analysis: json['analysis'] != null
+            ? SkinAnalysis.fromJson(json['analysis'] as Map<String, dynamic>)
+            : null,
+      );
+
+  // ── Helpers ────────────────────────────────────────────────────────────
+
+  bool get hasRoutine => routineLevel != null && routineLevel != 'none';
+
   String get intentLabel {
     switch (intent) {
       case 'build_routine':
@@ -68,7 +91,6 @@ class OnboardingData {
     }
   }
 
-  /// Dashboard greeting/focus line based on intent.
   String get dashboardFocus {
     switch (intent) {
       case 'build_routine':
@@ -81,6 +103,21 @@ class OnboardingData {
         return 'Your personalized treatment plan';
       default:
         return 'Your skin journey starts today';
+    }
+  }
+
+  String get routineLevelLabel {
+    switch (routineLevel) {
+      case 'none':
+        return 'No routine yet';
+      case 'basic':
+        return 'Basic routine';
+      case 'full':
+        return 'Full routine';
+      case 'advanced':
+        return 'Advanced routine';
+      default:
+        return 'Routine';
     }
   }
 }

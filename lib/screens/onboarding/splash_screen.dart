@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../services/onboarding_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -63,7 +64,15 @@ class _SplashScreenState extends State<SplashScreen>
 
   Future<void> _navigate() async {
     await Future.delayed(const Duration(milliseconds: 2800));
-    if (mounted) context.go('/welcome');
+    if (!mounted) return;
+    final complete = await OnboardingService.isComplete();
+    if (!mounted) return;
+    if (complete) {
+      final data = await OnboardingService.load();
+      if (mounted) context.go('/dashboard', extra: data);
+    } else {
+      context.go('/welcome');
+    }
   }
 
   @override

@@ -1,13 +1,40 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../models/firestore_product.dart';
 import '../../models/onboarding_data.dart';
+import '../../models/skin_analysis.dart';
+import '../../services/firestore_product_service.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   final OnboardingData data;
 
   const DashboardScreen({super.key, required this.data});
+
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  int _selectedTab = 0;
+  final FirestoreProductService _productService = FirestoreProductService();
+  late final Future<List<FirestoreProduct>> _firestoreProductsFuture;
+
+  OnboardingData get data => widget.data;
+  SkinAnalysis? get _analysis => data.analysis;
+
+  @override
+  void initState() {
+    super.initState();
+    _firestoreProductsFuture = _productService.getProductsForProfile(
+      skinType: data.skinType,
+      concern: data.concern,
+      conditionIds: _analysis?.conditions.map((c) => c.id).toList() ?? const [],
+      limit: 8,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -15,68 +42,212 @@ class DashboardScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: AppColors.primaryDark,
-      body: Column(
-        children: [
-          // ── Dark header ───────────────────────────────────────────────────
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFF2E1270), Color(0xFF1E0C52)],
-              ),
+      body: _selectedTab == 0
+          ? _buildHomeBody(context)
+          : _buildComingSoonBody(
+              title: _selectedTab == 1
+                  ? 'Routine Builder'
+                  : _selectedTab == 2
+                      ? 'Skin Insights'
+                      : 'Profile',
+              subtitle: _selectedTab == 1
+                  ? 'Track and optimize your AM/PM routine.'
+                  : _selectedTab == 2
+                      ? 'Daily trends and deeper skin intelligence.'
+                      : 'Preferences, goals, and account settings.',
+              icon: _selectedTab == 1
+                  ? Icons.auto_awesome_rounded
+                  : _selectedTab == 2
+                      ? Icons.insights_rounded
+                      : Icons.person_rounded,
             ),
-            child: SafeArea(
-              bottom: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildTopBar(),
-                    const SizedBox(height: 22),
-                    _buildScoreCard(context),
-                    const SizedBox(height: 28),
-                  ],
-                ),
-              ),
-            ),
-          ),
+      bottomNavigationBar: _buildBottomNav(),
+    );
+  }
 
-          // ── Scrollable white content ───────────────────────────────────
-          Expanded(
-            child: Container(
-              decoration: const BoxDecoration(
-                color: AppColors.background,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(28),
-                  topRight: Radius.circular(28),
-                ),
-              ),
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(24, 28, 24, 32),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildFocusBanner(),
-                    const SizedBox(height: 28),
-                    _buildSectionLabel("Today's Routine"),
-                    const SizedBox(height: 14),
-                    _buildRoutineCard(),
-                    const SizedBox(height: 28),
-                    _buildSectionLabel('Skin Snapshot'),
-                    const SizedBox(height: 14),
-                    _buildSnapshotRow(),
-                    const SizedBox(height: 28),
-                    _buildSectionLabel('Recommended For You'),
-                    const SizedBox(height: 14),
-                    _buildProductsList(),
-                  ],
-                ),
+  Widget _buildHomeBody(BuildContext context) {
+    return Column(
+      children: [
+        // ── Dark header ───────────────────────────────────────────────────
+        Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF2E1270), Color(0xFF1E0C52)],
+            ),
+          ),
+          child: SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildTopBar(),
+                  const SizedBox(height: 22),
+                  _buildScoreCard(context),
+                  const SizedBox(height: 28),
+                ],
               ),
             ),
           ),
-        ],
+        ),
+
+        // ── Scrollable white content ───────────────────────────────────
+        Expanded(
+          child: Container(
+            decoration: const BoxDecoration(
+              color: AppColors.background,
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(28),
+                topRight: Radius.circular(28),
+              ),
+            ),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(24, 28, 24, 32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildFocusBanner(),
+                  const SizedBox(height: 28),
+                  if (_analysis == null) ...[
+                    _buildAnalysisReminder(),
+                    const SizedBox(height: 20),
+                  ],
+                  _buildSectionLabel("Today's Routine"),
+                  const SizedBox(height: 14),
+                  _buildRoutineCard(),
+                  const SizedBox(height: 28),
+                  _buildSectionLabel('Skin Snapshot'),
+                  const SizedBox(height: 14),
+                  _buildSnapshotRow(),
+                  const SizedBox(height: 28),
+                  _buildSectionLabel('Recommended For You'),
+                  const SizedBox(height: 14),
+                  _buildProductsList(),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildComingSoonBody({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+  }) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Center(
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withValues(alpha: 0.12),
+                  ),
+                  child: Icon(icon, color: Colors.white, size: 32),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  title,
+                  style: AppTextStyles.headlineMedium.copyWith(color: Colors.white),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  subtitle,
+                  textAlign: TextAlign.center,
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: Colors.white.withValues(alpha: 0.75),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomNav() {
+    return SafeArea(
+      top: false,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: const Color(0xFF24105A),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+          boxShadow: const [
+            BoxShadow(
+              color: AppColors.shadowStrong,
+              blurRadius: 18,
+              offset: Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            _buildNavItem(0, Icons.home_rounded, 'Home'),
+            _buildNavItem(1, Icons.auto_awesome_rounded, 'Routine'),
+            _buildNavItem(2, Icons.insights_rounded, 'Insights'),
+            _buildNavItem(3, Icons.person_rounded, 'Profile'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem(int index, IconData icon, String label) {
+    final selected = _selectedTab == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _selectedTab = index),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: selected ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 20,
+                color: selected ? AppColors.primaryDark : Colors.white.withValues(alpha: 0.75),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: AppTextStyles.labelSmall.copyWith(
+                  color:
+                      selected ? AppColors.primaryDark : Colors.white.withValues(alpha: 0.8),
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -163,7 +334,7 @@ class DashboardScreen extends StatelessWidget {
                 width: 82,
                 height: 82,
                 child: CircularProgressIndicator(
-                  value: 0.78,
+                  value: ((_analysis?.score ?? 78) / 100).clamp(0.0, 1.0),
                   strokeWidth: 6,
                   backgroundColor: Colors.white.withValues(alpha: 0.12),
                   valueColor:
@@ -173,7 +344,7 @@ class DashboardScreen extends StatelessWidget {
               Column(
                 children: [
                   Text(
-                    '78',
+                    '${_analysis?.score ?? 78}',
                     style: AppTextStyles.headlineLarge.copyWith(
                       color: Colors.white,
                       fontWeight: FontWeight.w800,
@@ -203,7 +374,7 @@ class DashboardScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Looking good!',
+                  _scoreLabel(_analysis?.score ?? 78),
                   style: AppTextStyles.headlineSmall.copyWith(
                     color: Colors.white,
                   ),
@@ -315,6 +486,29 @@ class DashboardScreen extends StatelessWidget {
 
   Widget _buildSectionLabel(String label) {
     return Text(label, style: AppTextStyles.headlineSmall);
+  }
+
+  Widget _buildAnalysisReminder() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.warningLight,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.warning.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.photo_camera_outlined, color: AppColors.warning, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Upload a face photo to unlock precise skin analysis and product matching.',
+              style: AppTextStyles.bodySmall.copyWith(color: AppColors.warning),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildRoutineCard() {
@@ -433,73 +627,95 @@ class DashboardScreen extends StatelessWidget {
   }
 
   Widget _buildSnapshotRow() {
+    final conditions = _analysis?.conditions ?? const [];
+    final topConditions = conditions.take(3).toList();
+    if (topConditions.isEmpty) {
+      return Row(
+        children: [
+          Expanded(
+            child: _SnapshotCard(
+              icon: Icons.check_circle_outline,
+              label: 'Status',
+              value: 'Ready',
+              color: AppColors.success,
+              bgColor: AppColors.successLight,
+            ),
+          ),
+        ],
+      );
+    }
     return Row(
       children: [
-        Expanded(
-          child: _SnapshotCard(
-            icon: Icons.water_drop_outlined,
-            label: 'Hydration',
-            value: 'Good',
-            color: AppColors.info,
-            bgColor: AppColors.infoLight,
+        for (var i = 0; i < topConditions.length; i++) ...[
+          Expanded(
+            child: _SnapshotCard(
+              icon: _conditionIcon(topConditions[i].id),
+              label: topConditions[i].label,
+              value: _severityLabel(topConditions[i].severity),
+              color: _severityColor(topConditions[i].severity),
+              bgColor: _severityBgColor(topConditions[i].severity),
+            ),
           ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _SnapshotCard(
-            icon: Icons.opacity_outlined,
-            label: 'Oil Level',
-            value: 'Balanced',
-            color: AppColors.success,
-            bgColor: AppColors.successLight,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _SnapshotCard(
-            icon: Icons.stars_outlined,
-            label: 'Clarity',
-            value: 'Great',
-            color: const Color(0xFFB77C2A),
-            bgColor: AppColors.tintGold,
-          ),
-        ),
+          if (i != topConditions.length - 1) const SizedBox(width: 12),
+        ],
       ],
     );
   }
 
   Widget _buildProductsList() {
-    final products = [
-      _ProductItem(
-        name: 'Hydrating Cleanser',
-        brand: 'CeraVe',
-        tag: 'Cleanser',
-        tagColor: AppColors.infoLight,
-        tagTextColor: AppColors.info,
-      ),
-      _ProductItem(
-        name: 'Vitamin C Serum',
-        brand: 'The Ordinary',
-        tag: 'Serum',
-        tagColor: AppColors.tintGold,
-        tagTextColor: AppColors.warning,
-      ),
-      _ProductItem(
-        name: 'Daily Moisturizer SPF 30',
-        brand: 'La Roche-Posay',
-        tag: 'Moisturizer',
-        tagColor: AppColors.tintSage,
-        tagTextColor: AppColors.success,
-      ),
-    ];
+    return FutureBuilder<List<FirestoreProduct>>(
+      future: _firestoreProductsFuture,
+      builder: (context, snapshot) {
+        final remoteProducts = snapshot.data ?? const <FirestoreProduct>[];
+        final localProducts = (_analysis?.recommendedProducts(
+              excluding: _analysis?.currentProducts ?? const [],
+            ) ??
+                const <ProductRecommendation>[])
+            .map(
+              (p) => _ProductItem(
+                name: p.name,
+                brand: p.brand,
+                tag: p.category,
+                tagColor: _tagBgColor(p.category),
+                tagTextColor: _tagTextColor(p.category),
+                subtitle: p.reason,
+              ),
+            )
+            .toList();
 
-    return Column(
-      children: products
-          .map((p) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _buildProductCard(p),
-              ))
-          .toList(),
+        final products = remoteProducts.isNotEmpty
+            ? remoteProducts
+                .map(
+                  (p) => _ProductItem(
+                    name: p.name,
+                    brand: p.brand,
+                    tag: p.category,
+                    tagColor: _tagBgColor(p.category),
+                    tagTextColor: _tagTextColor(p.category),
+                    subtitle: p.reason,
+                    imageUrl: p.imageUrl,
+                    affiliateUrl: p.affiliateUrl,
+                  ),
+                )
+                .toList()
+            : localProducts;
+
+        if (products.isEmpty) {
+          return Text(
+            'Complete your skin analysis to unlock recommendations.',
+            style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
+          );
+        }
+
+        return Column(
+          children: products
+              .map((p) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _buildProductCard(p),
+                  ))
+              .toList(),
+        );
+      },
     );
   }
 
@@ -519,19 +735,7 @@ class DashboardScreen extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              color: AppColors.surfaceVariant,
-              borderRadius: BorderRadius.circular(13),
-            ),
-            child: const Icon(
-              Icons.spa_outlined,
-              color: AppColors.primary,
-              size: 26,
-            ),
-          ),
+          _buildProductImage(product),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
@@ -543,6 +747,15 @@ class DashboardScreen extends StatelessWidget {
                   product.brand,
                   style: AppTextStyles.bodySmall,
                 ),
+                if (product.subtitle != null) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    product.subtitle!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
+                  ),
+                ],
               ],
             ),
           ),
@@ -566,16 +779,161 @@ class DashboardScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 6),
-              const Icon(
-                Icons.arrow_forward_ios_rounded,
-                size: 14,
-                color: AppColors.textTertiary,
+              GestureDetector(
+                onTap: product.affiliateUrl == null ? null : () => _openAffiliateLink(product),
+                child: Icon(
+                  Icons.open_in_new_rounded,
+                  size: 14,
+                  color: product.affiliateUrl == null
+                      ? AppColors.textTertiary
+                      : AppColors.primary,
+                ),
               ),
             ],
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildProductImage(_ProductItem product) {
+    if (product.imageUrl != null && product.imageUrl!.isNotEmpty) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(13),
+        child: Image.network(
+          product.imageUrl!,
+          width: 52,
+          height: 52,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _defaultProductIcon(),
+        ),
+      );
+    }
+    return _defaultProductIcon();
+  }
+
+  Widget _defaultProductIcon() {
+    return Container(
+      width: 52,
+      height: 52,
+      decoration: BoxDecoration(
+        color: AppColors.surfaceVariant,
+        borderRadius: BorderRadius.circular(13),
+      ),
+      child: const Icon(
+        Icons.spa_outlined,
+        color: AppColors.primary,
+        size: 26,
+      ),
+    );
+  }
+
+  Future<void> _openAffiliateLink(_ProductItem product) async {
+    final url = product.affiliateUrl;
+    if (url == null || url.isEmpty) return;
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  String _scoreLabel(int score) {
+    if (score >= 80) return 'Looking great!';
+    if (score >= 65) return 'On track';
+    if (score >= 50) return 'Improving';
+    return 'Needs attention';
+  }
+
+  String _severityLabel(String severity) {
+    switch (severity) {
+      case 'significant':
+        return 'High';
+      case 'moderate':
+        return 'Medium';
+      default:
+        return 'Mild';
+    }
+  }
+
+  Color _severityColor(String severity) {
+    switch (severity) {
+      case 'significant':
+        return AppColors.error;
+      case 'moderate':
+        return AppColors.warning;
+      default:
+        return AppColors.info;
+    }
+  }
+
+  Color _severityBgColor(String severity) {
+    switch (severity) {
+      case 'significant':
+        return AppColors.error.withValues(alpha: 0.1);
+      case 'moderate':
+        return AppColors.warningLight;
+      default:
+        return AppColors.infoLight;
+    }
+  }
+
+  IconData _conditionIcon(String id) {
+    switch (id) {
+      case 'blackheads':
+      case 'blemishes':
+      case 'congestion':
+        return Icons.circle_outlined;
+      case 'redness':
+      case 'capillaries':
+        return Icons.flare_outlined;
+      case 'dehydration':
+      case 'dry_cheeks':
+      case 'flakiness':
+        return Icons.water_drop_outlined;
+      case 'excess_sebum':
+      case 'enlarged_pores':
+      case 'tzone_oil':
+        return Icons.opacity_outlined;
+      case 'fine_lines':
+      case 'firmness':
+        return Icons.hourglass_top_outlined;
+      case 'hyperpigmentation':
+      case 'uneven_tone':
+        return Icons.lens_outlined;
+      case 'dullness':
+      case 'texture':
+        return Icons.brightness_low_outlined;
+      case 'sensitivity':
+      case 'thin_barrier':
+        return Icons.shield_outlined;
+      default:
+        return Icons.spa_outlined;
+    }
+  }
+
+  Color _tagBgColor(String category) {
+    switch (category.toLowerCase()) {
+      case 'spf':
+        return AppColors.tintGold;
+      case 'moisturizer':
+        return AppColors.tintSage;
+      case 'serum':
+        return AppColors.infoLight;
+      default:
+        return AppColors.surfaceVariant;
+    }
+  }
+
+  Color _tagTextColor(String category) {
+    switch (category.toLowerCase()) {
+      case 'spf':
+        return AppColors.warning;
+      case 'moisturizer':
+        return AppColors.success;
+      case 'serum':
+        return AppColors.info;
+      default:
+        return AppColors.textSecondary;
+    }
   }
 }
 
@@ -685,6 +1043,9 @@ class _ProductItem {
   final String tag;
   final Color tagColor;
   final Color tagTextColor;
+  final String? subtitle;
+  final String? imageUrl;
+  final String? affiliateUrl;
 
   const _ProductItem({
     required this.name,
@@ -692,5 +1053,8 @@ class _ProductItem {
     required this.tag,
     required this.tagColor,
     required this.tagTextColor,
+    this.subtitle,
+    this.imageUrl,
+    this.affiliateUrl,
   });
 }

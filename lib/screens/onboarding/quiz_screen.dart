@@ -19,6 +19,8 @@ class _QuizScreenState extends State<QuizScreen>
     with SingleTickerProviderStateMixin {
   int _currentIndex = 0;
   late List<String?> _answers;
+  final TextEditingController _productController = TextEditingController();
+  late List<String> _currentProducts;
 
   late AnimationController _slideController;
   late Animation<Offset> _slideIn;
@@ -91,6 +93,7 @@ class _QuizScreenState extends State<QuizScreen>
       _routineValueToLabel(widget.data.routineLevel),
       _breakoutsValueToLabel(widget.data.breakouts),
     ];
+    _currentProducts = List<String>.from(widget.data.currentProducts);
 
     _slideController = AnimationController(
       duration: const Duration(milliseconds: 400),
@@ -110,6 +113,7 @@ class _QuizScreenState extends State<QuizScreen>
 
   @override
   void dispose() {
+    _productController.dispose();
     _slideController.dispose();
     super.dispose();
   }
@@ -140,6 +144,7 @@ class _QuizScreenState extends State<QuizScreen>
       concern: _labelToConcern(_answers[1]),
       routineLevel: _labelToRoutine(_answers[2]),
       breakouts: _labelToBreakouts(_answers[3]),
+      currentProducts: _currentProducts,
     );
   }
 
@@ -176,6 +181,15 @@ class _QuizScreenState extends State<QuizScreen>
     setState(() => _answers[_currentIndex] = answer);
   }
 
+  void _addCurrentProduct() {
+    final value = _productController.text.trim();
+    if (value.isEmpty || _currentProducts.contains(value)) return;
+    setState(() {
+      _currentProducts.add(value);
+      _productController.clear();
+    });
+  }
+
   Future<void> _next() async {
     if (_currentIndex < _questions.length - 1) {
       await _slideController.reverse();
@@ -201,6 +215,9 @@ class _QuizScreenState extends State<QuizScreen>
     final question = _questions[_currentIndex];
     final selected = _answers[_currentIndex];
     final progress = (_currentIndex + 1) / _questions.length;
+    final isLastQuestion = _currentIndex == _questions.length - 1;
+    final routineChosen = _answers[2] != null && _answers[2] != 'No routine yet';
+    final needsProductsNow = isLastQuestion && routineChosen;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -295,6 +312,72 @@ class _QuizScreenState extends State<QuizScreen>
                           ),
                         ),
                       ),
+                      if (needsProductsNow) ...[
+                        const SizedBox(height: 8),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: AppColors.surface,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: AppColors.border),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Current products (required for optimization)',
+                                  style: AppTextStyles.labelLarge,
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: TextField(
+                                        controller: _productController,
+                                        onSubmitted: (_) => _addCurrentProduct(),
+                                        decoration: const InputDecoration(
+                                          hintText: 'e.g. CeraVe Hydrating Cleanser',
+                                          isDense: true,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    IconButton(
+                                      onPressed: _addCurrentProduct,
+                                      icon: const Icon(Icons.add_circle_outline),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                if (_currentProducts.isEmpty)
+                                  Text(
+                                    'Add at least one product to continue.',
+                                    style: AppTextStyles.bodySmall.copyWith(
+                                      color: AppColors.textTertiary,
+                                    ),
+                                  )
+                                else
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: _currentProducts
+                                        .map(
+                                          (p) => Chip(
+                                            label: Text(p),
+                                            onDeleted: () => setState(
+                                              () => _currentProducts.remove(p),
+                                            ),
+                                          ),
+                                        )
+                                        .toList(),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -305,7 +388,9 @@ class _QuizScreenState extends State<QuizScreen>
               child: SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: selected != null ? _next : null,
+                  onPressed: selected != null && (!needsProductsNow || _currentProducts.isNotEmpty)
+                      ? _next
+                      : null,
                   style: ElevatedButton.styleFrom(
                     disabledBackgroundColor: AppColors.surfaceVariant,
                     disabledForegroundColor: AppColors.textTertiary,

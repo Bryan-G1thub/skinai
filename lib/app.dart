@@ -8,6 +8,8 @@ import 'screens/onboarding/intent_screen.dart';
 import 'screens/onboarding/goal_screen.dart';
 import 'screens/onboarding/quiz_screen.dart';
 import 'screens/onboarding/photo_capture_screen.dart';
+import 'screens/onboarding/analysis_result_screen.dart';
+import 'screens/onboarding/routine_input_screen.dart';
 import 'screens/home/dashboard_screen.dart';
 
 final _router = GoRouter(
@@ -47,6 +49,20 @@ final _router = GoRouter(
       builder: (context, state) {
         final data = (state.extra as OnboardingData?) ?? const OnboardingData();
         return PhotoCaptureScreen(data: data);
+      },
+    ),
+    GoRoute(
+      path: '/analysis-result',
+      builder: (context, state) {
+        final data = (state.extra as OnboardingData?) ?? const OnboardingData();
+        return AnalysisResultScreen(data: data);
+      },
+    ),
+    GoRoute(
+      path: '/routine-input',
+      builder: (context, state) {
+        final data = (state.extra as OnboardingData?) ?? const OnboardingData();
+        return RoutineInputScreen(data: data);
       },
     ),
     GoRoute(
