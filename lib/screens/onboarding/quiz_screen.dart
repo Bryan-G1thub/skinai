@@ -36,7 +36,7 @@ class _QuizScreenState extends State<QuizScreen>
     _questions = [
       const _QuizQuestion(
         question: 'How would you describe\nyour skin type?',
-        subtitle: 'Pick the one that feels most like you',
+        subtitle: 'Shapes product matches and routine steps for you',
         options: ['Oily', 'Dry', 'Combination', 'Normal', 'Sensitive'],
         icons: [
           Icons.water_outlined,
@@ -48,7 +48,7 @@ class _QuizScreenState extends State<QuizScreen>
       ),
       const _QuizQuestion(
         question: "What's your biggest\nskin concern?",
-        subtitle: "We'll focus your plan here",
+        subtitle: 'We prioritize this on your home screen and picks',
         options: ['Acne', 'Aging', 'Dark spots', 'Redness', 'Dullness'],
         icons: [
           Icons.circle_outlined,
@@ -265,10 +265,44 @@ class _QuizScreenState extends State<QuizScreen>
                       ),
                     ],
                   ),
+                  if (_currentIndex == 0) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            Icons.layers_outlined,
+                            size: 22,
+                            color: AppColors.primary.withValues(alpha: 0.9),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Next: a quick photo scan, then your dashboard with '
+                              'routine ideas and tailored product picks—grounded in '
+                              'what you tell us here.',
+                              style: AppTextStyles.bodySmall.copyWith(
+                                color: AppColors.textSecondary,
+                                height: 1.45,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: _currentIndex == 0 ? 16 : 24),
             // Animated question + options
             Expanded(
               child: SlideTransition(
