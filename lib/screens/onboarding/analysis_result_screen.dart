@@ -55,7 +55,7 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
 
   Future<void> _continue() async {
     final updated = widget.data.copyWith(analysis: _analysis);
-    if (updated.hasRoutine && updated.currentProducts.isEmpty) {
+    if (updated.effectiveHasRoutine && updated.resolvedProductLines.isEmpty) {
       context.go('/routine-input', extra: updated);
     } else {
       await OnboardingService.save(updated);
@@ -351,7 +351,7 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
                 .toList(),
           ),
         ),
-        if (widget.data.hasRoutine) ...[
+        if (widget.data.effectiveHasRoutine) ...[
           const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.all(14),
@@ -390,7 +390,7 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
           padding: const EdgeInsets.symmetric(vertical: 18),
         ),
         child: Text(
-          widget.data.hasRoutine
+          widget.data.effectiveHasRoutine
               ? 'Tell us about your routine'
               : 'See my personalized plan',
           style: AppTextStyles.button,

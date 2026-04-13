@@ -709,6 +709,10 @@ class CabinetProfileWorkspace extends StatelessWidget {
                     _miniRow('Skin', profile.skinType ?? '—'),
                     _miniRow('Concern', profile.concern ?? '—'),
                     _miniRow('Intent', profile.intentLabel),
+                    if (profile.productPreferences.isNotEmpty)
+                      _miniRow('Preferences', profile.productPreferences.join(', ')),
+                    if (profile.sensitivities.isNotEmpty)
+                      _miniRow('Sensitivities', profile.sensitivities.join(', ')),
                   ],
                 ),
               ),

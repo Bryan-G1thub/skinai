@@ -114,14 +114,24 @@ Return this exact JSON structure:
     final skinType = data.skinType ?? '';
     final concern = data.concern ?? '';
     final breakouts = data.breakouts ?? '';
-    final products = data.currentProducts;
+    final products = data.resolvedProductLines;
+    final prefs = data.productPreferences.join(', ');
+    final sens = data.sensitivities.join(', ');
+    final slots = data.routineSlots
+        .where((s) => !s.isEmpty)
+        .map((s) => '${s.categoryId}: ${s.resolvedLabel}')
+        .join(' | ');
 
     return '''
 Quiz answers:
 - skinType: $skinType
 - primaryConcern: $concern
 - breakouts: $breakouts
+- hasExistingRoutine: ${data.hasExistingRoutine}
+- routineSlots: ${slots.isEmpty ? '[]' : slots}
 - currentProducts: ${products.isEmpty ? '[]' : products.join(' | ')}
+- productPreferences: ${prefs.isEmpty ? 'none' : prefs}
+- sensitivities: ${sens.isEmpty ? 'none' : sens}
 
 If a photo is provided, use it to refine surface-level cues. Stay non-medical and conservative.
 '''.trim();

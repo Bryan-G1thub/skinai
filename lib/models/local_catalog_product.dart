@@ -16,6 +16,16 @@ class LocalCatalogProduct {
 
   final String blurb;
 
+  /// Optional fixed affiliate link; if null, UI may fall back to Amazon search.
+  final String? affiliateUrl;
+  final String? imageUrl;
+
+  /// Snapshot price for display (e.g. "~\$15.97") — Amazon changes prices; re-verify periodically.
+  final String? priceDisplay;
+
+  /// Product UPC when known (helps you match in-store / inventory).
+  final String? upc;
+
   const LocalCatalogProduct({
     required this.id,
     required this.name,
@@ -26,5 +36,9 @@ class LocalCatalogProduct {
     this.concernTags = const [],
     this.flags = const {},
     required this.blurb,
+    this.affiliateUrl,
+    this.imageUrl,
+    this.priceDisplay,
+    this.upc,
   });
 }

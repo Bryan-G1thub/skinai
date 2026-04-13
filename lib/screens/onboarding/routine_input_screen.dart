@@ -16,7 +16,11 @@ class RoutineInputScreen extends StatefulWidget {
 
 class _RoutineInputScreenState extends State<RoutineInputScreen> {
   final TextEditingController _controller = TextEditingController();
-  late final List<String> _products = List<String>.from(widget.data.currentProducts);
+  late final List<String> _products = List<String>.from(
+    widget.data.resolvedProductLines.isNotEmpty
+        ? widget.data.resolvedProductLines
+        : widget.data.currentProducts,
+  );
   bool _saving = false;
 
   @override

@@ -32,14 +32,29 @@ class SkinJourneyStorage {
     await prefs.setString(_kJourney, jsonEncode(state.toJson()));
   }
 
-  /// Merge onboarding product strings into cabinet when we can match catalog.
+  /// Merge onboarding routine slots and free-text products into cabinet when we can match catalog.
   static SkinJourneyState mergeOnboardingProducts(
     SkinJourneyState state,
     OnboardingData data,
   ) {
-    if (data.currentProducts.isEmpty) return state;
     final existing = state.cabinet.map((c) => c.catalogProductId).toSet();
     final add = <CabinetItem>[];
+
+    for (final slot in data.routineSlots) {
+      final id = slot.catalogProductId;
+      if (id != null && id.isNotEmpty && !existing.contains(id)) {
+        final m = LocalSkinCatalog.getById(id);
+        if (m != null) {
+          add.add(CabinetItem(
+            id: 'cab_${DateTime.now().microsecondsSinceEpoch}_${m.id}',
+            catalogProductId: m.id,
+            addedAtIso: DateTime.now().toIso8601String(),
+          ));
+          existing.add(m.id);
+        }
+      }
+    }
+
     for (final line in data.currentProducts) {
       final m = LocalSkinCatalog.matchLoose(line);
       if (m != null && !existing.contains(m.id)) {
@@ -51,6 +66,7 @@ class SkinJourneyStorage {
         existing.add(m.id);
       }
     }
+
     if (add.isEmpty) return state;
     return state.copyWith(cabinet: [...state.cabinet, ...add]);
   }

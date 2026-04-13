@@ -7,6 +7,10 @@ import 'screens/onboarding/welcome_screen.dart';
 import 'screens/onboarding/intent_screen.dart';
 import 'screens/onboarding/goal_screen.dart';
 import 'screens/onboarding/quiz_screen.dart';
+import 'screens/onboarding/routine_presence_screen.dart';
+import 'screens/onboarding/routine_slots_screen.dart';
+import 'screens/onboarding/product_preferences_screen.dart';
+import 'screens/onboarding/sensitivities_screen.dart';
 import 'screens/onboarding/photo_capture_screen.dart';
 import 'screens/onboarding/analysis_result_screen.dart';
 import 'screens/onboarding/routine_input_screen.dart';
@@ -42,6 +46,34 @@ final _router = GoRouter(
       builder: (context, state) {
         final data = (state.extra as OnboardingData?) ?? const OnboardingData();
         return QuizScreen(data: data);
+      },
+    ),
+    GoRoute(
+      path: '/routine-presence',
+      builder: (context, state) {
+        final data = (state.extra as OnboardingData?) ?? const OnboardingData();
+        return RoutinePresenceScreen(data: data);
+      },
+    ),
+    GoRoute(
+      path: '/routine-slots',
+      builder: (context, state) {
+        final data = (state.extra as OnboardingData?) ?? const OnboardingData();
+        return RoutineSlotsScreen(data: data);
+      },
+    ),
+    GoRoute(
+      path: '/product-preferences',
+      builder: (context, state) {
+        final data = (state.extra as OnboardingData?) ?? const OnboardingData();
+        return ProductPreferencesScreen(data: data);
+      },
+    ),
+    GoRoute(
+      path: '/sensitivities',
+      builder: (context, state) {
+        final data = (state.extra as OnboardingData?) ?? const OnboardingData();
+        return SensitivitiesScreen(data: data);
       },
     ),
     GoRoute(

@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/onboarding_data.dart';
 import 'skin_journey_storage.dart';
-import 'user_profile_service.dart';
 
 class OnboardingService {
   static const _kComplete = 'onboarding_complete';
@@ -19,7 +18,6 @@ class OnboardingService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_kComplete, true);
     await prefs.setString(_kData, jsonEncode(data.toJson()));
-    await UserProfileService.syncOnboarding(data);
   }
 
   /// Loads the saved onboarding data. Returns null if not saved.

@@ -4,11 +4,10 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/skin_analysis_copy.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../data/local_skin_catalog.dart';
 import '../../models/onboarding_data.dart';
 import '../../models/skin_analysis.dart';
-import '../../services/firestore_product_service.dart';
-import '../../services/product_knowledge_service.dart';
-import '../../services/product_recommendation_engine.dart';
+import '../../services/local_product_recommendation_service.dart';
 import '../../services/skin_journey_storage.dart';
 import '../../models/skin_journey_state.dart';
 import 'skin_journey_dashboard_tabs.dart';
@@ -24,11 +23,10 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   int _selectedTab = 0;
-  final FirestoreProductService _productService = FirestoreProductService();
-  late final Future<List<RankedFirestoreProduct>> _rankedProductsFuture;
 
   SkinJourneyState _journey = const SkinJourneyState();
   bool _journeyLoading = true;
+  List<RankedLocalProduct> _rankedLocal = const [];
 
   OnboardingData get data => widget.data;
   SkinAnalysis? get _analysis => data.analysis;
@@ -36,8 +34,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
-    _rankedProductsFuture = _loadRankedProducts();
+    _rankedLocal = _computeRanked();
     _bootJourney();
+  }
+
+  Set<String> _ownedCatalogIds() {
+    final owned = <String>{};
+    for (final s in data.routineSlots) {
+      final id = s.catalogProductId;
+      if (id != null && id.isNotEmpty) owned.add(id);
+    }
+    for (final c in _journey.cabinet) {
+      owned.add(c.catalogProductId);
+    }
+    return owned;
+  }
+
+  List<RankedLocalProduct> _computeRanked() {
+    return LocalProductRecommendationEngine.rank(
+      data: data,
+      analysis: _analysis,
+      ownedCatalogIds: _ownedCatalogIds(),
+      take: 10,
+    );
   }
 
   Future<void> _bootJourney() async {
@@ -50,28 +69,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
     setState(() {
       _journey = merged;
       _journeyLoading = false;
+      _rankedLocal = _computeRanked();
     });
   }
 
   void _setJourney(SkinJourneyState next) {
-    setState(() => _journey = next);
+    setState(() {
+      _journey = next;
+      _rankedLocal = _computeRanked();
+    });
     SkinJourneyStorage.save(next);
-  }
-
-  Future<List<RankedFirestoreProduct>> _loadRankedProducts() async {
-    final raw = await _productService.getProductsForProfile(
-      skinType: data.skinType,
-      concern: data.concern,
-      conditionIds: _analysis?.conditions.map((c) => c.id).toList() ?? const [],
-      limit: 24,
-    );
-    final km = ProductKnowledgeService.matchUserProducts(data.currentProducts);
-    return ProductRecommendationEngine.rank(
-      products: raw,
-      data: data,
-      analysis: _analysis,
-      knowledgeMatches: km,
-    ).take(10).toList();
   }
 
   @override
@@ -169,6 +176,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   _buildSnapshotRow(),
                   const SizedBox(height: 28),
                   _buildSectionLabel('Recommended For You'),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Curated picks from our offline catalog. Links open Amazon search — add your affiliate IDs in the catalog when ready.',
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.textTertiary,
+                      height: 1.35,
+                    ),
+                  ),
                   const SizedBox(height: 14),
                   _buildProductsList(),
                 ],
@@ -683,66 +698,67 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildProductsList() {
-    return FutureBuilder<List<RankedFirestoreProduct>>(
-      future: _rankedProductsFuture,
-      builder: (context, snapshot) {
-        final ranked = snapshot.data ?? const <RankedFirestoreProduct>[];
-        final localProducts = (_analysis?.recommendedProducts(
-              excluding: _analysis?.currentProducts ?? const [],
-            ) ??
-                const <ProductRecommendation>[])
+    final ranked = _rankedLocal;
+    final localProducts = (_analysis?.recommendedProducts(
+          excluding: _analysis?.currentProducts ?? const [],
+        ) ??
+            const <ProductRecommendation>[])
+        .map(
+          (p) => _ProductItem(
+            name: p.name,
+            brand: p.brand,
+            tag: p.category,
+            tagColor: _tagBgColor(p.category),
+            tagTextColor: _tagTextColor(p.category),
+            subtitle: p.reason,
+          ),
+        )
+        .toList();
+
+    final products = ranked.isNotEmpty
+        ? ranked
             .map(
-              (p) => _ProductItem(
-                name: p.name,
-                brand: p.brand,
-                tag: p.category,
-                tagColor: _tagBgColor(p.category),
-                tagTextColor: _tagTextColor(p.category),
-                subtitle: p.reason,
+              (r) => _ProductItem(
+                name: r.product.name,
+                brand: r.product.brand,
+                tag: _roleLabel(r.product.role),
+                tagColor: _tagBgColor(r.product.role),
+                tagTextColor: _tagTextColor(r.product.role),
+                subtitle: r.explanation.isNotEmpty ? r.explanation : r.product.blurb,
+                imageUrl: r.product.imageUrl,
+                affiliateUrl: LocalSkinCatalog.purchaseOrSearchUrl(r.product),
+                priceDisplay: r.product.priceDisplay,
+                upc: r.product.upc,
               ),
             )
-            .toList();
+            .toList()
+        : localProducts;
 
-        final products = ranked.isNotEmpty
-            ? ranked
-                .map(
-                  (r) => _ProductItem(
-                    name: r.product.name,
-                    brand: r.product.brand,
-                    tag: r.product.category,
-                    tagColor: _tagBgColor(r.product.category),
-                    tagTextColor: _tagTextColor(r.product.category),
-                    subtitle: r.explanation.isNotEmpty
-                        ? r.explanation
-                        : r.product.reason,
-                    imageUrl: r.product.imageUrl,
-                    affiliateUrl: r.product.affiliateUrl,
-                  ),
-                )
-                .toList()
-            : localProducts;
+    if (products.isEmpty) {
+      return Text(
+        'Complete onboarding and skin analysis to unlock recommendations.',
+        style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
+      );
+    }
 
-        if (products.isEmpty) {
-          return Text(
-            'Complete onboarding and skin analysis to unlock recommendations.',
-            style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
-          );
-        }
-
-        return Column(
-          children: products
-              .map((p) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _buildProductCard(p),
-                  ))
-              .toList(),
-        );
-      },
+    return Column(
+      children: products
+          .map((p) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _buildProductCard(p),
+              ))
+          .toList(),
     );
   }
 
+  String _roleLabel(String role) {
+    if (role.isEmpty) return 'Product';
+    if (role.toLowerCase() == 'spf') return 'SPF';
+    return '${role[0].toUpperCase()}${role.substring(1)}';
+  }
+
   Widget _buildProductCard(_ProductItem product) {
-    return Container(
+    final card = Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.surface,
@@ -769,11 +785,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   product.brand,
                   style: AppTextStyles.bodySmall,
                 ),
+                if (product.priceDisplay != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    product.priceDisplay!,
+                    style: AppTextStyles.labelLarge.copyWith(
+                      color: AppColors.success,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+                if (product.upc != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    'UPC ${product.upc}',
+                    style: AppTextStyles.caption.copyWith(color: AppColors.textTertiary),
+                  ),
+                ],
                 if (product.subtitle != null) ...[
                   const SizedBox(height: 6),
                   Text(
                     product.subtitle!,
-                    maxLines: 2,
+                    maxLines: 3,
                     overflow: TextOverflow.ellipsis,
                     style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
                   ),
@@ -816,6 +849,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ],
       ),
     );
+    if (product.affiliateUrl != null && product.affiliateUrl!.isNotEmpty) {
+      return Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => _openAffiliateLink(product),
+          child: card,
+        ),
+      );
+    }
+    return card;
   }
 
   Widget _buildProductImage(_ProductItem product) {
@@ -1068,6 +1112,8 @@ class _ProductItem {
   final String? subtitle;
   final String? imageUrl;
   final String? affiliateUrl;
+  final String? priceDisplay;
+  final String? upc;
 
   const _ProductItem({
     required this.name,
@@ -1078,5 +1124,7 @@ class _ProductItem {
     this.subtitle,
     this.imageUrl,
     this.affiliateUrl,
+    this.priceDisplay,
+    this.upc,
   });
 }
