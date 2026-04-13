@@ -6,7 +6,10 @@ import 'package:image_picker/image_picker.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../models/onboarding_data.dart';
+import '../../core/constants/skin_analysis_copy.dart';
 import '../../services/onboarding_service.dart';
+import '../../services/claude_skin_analysis_service.dart';
+import '../../services/skin_vision_analysis_service.dart';
 
 class PhotoCaptureScreen extends StatefulWidget {
   final OnboardingData data;
@@ -21,6 +24,9 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen>
     with SingleTickerProviderStateMixin {
   bool _isAnalyzing = false;
   File? _selectedImage;
+  bool _photoConsent = false;
+
+  final SkinVisionAnalysisService _vision = const ClaudeSkinAnalysisService();
 
   late AnimationController _pulseController;
   late Animation<double> _pulse;
@@ -66,11 +72,22 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen>
 
   Future<void> _analyze() async {
     setState(() => _isAnalyzing = true);
-    // Simulate AI analysis delay
-    await Future.delayed(const Duration(milliseconds: 2400));
-    if (mounted) {
-      context.go('/analysis-result', extra: widget.data);
-    }
+    Uint8List? bytes;
+    try {
+      if (_selectedImage != null) {
+        bytes = await _selectedImage!.readAsBytes();
+      }
+    } catch (_) {}
+    final analysis = await _vision.analyze(
+      widget.data,
+      faceImageBytes: (_photoConsent ? bytes : null),
+    );
+    await Future.delayed(const Duration(milliseconds: 900));
+    if (!mounted) return;
+    context.go(
+      '/analysis-result',
+      extra: widget.data.copyWith(analysis: analysis),
+    );
   }
 
   Future<void> _skip() async {
@@ -121,14 +138,23 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen>
               const SizedBox(height: 6),
               Text(
                 _isAnalyzing
-                    ? 'Our AI is building your personalized profile'
-                    : 'A clear photo helps us spot redness, pores, texture & more',
+                    ? 'Building your profile from your answers and photo…'
+                    : 'Optional: a clear selfie adds surface cues on top of your quiz.',
                 textAlign: TextAlign.center,
                 style: AppTextStyles.bodyMedium.copyWith(
                   color: AppColors.textSecondary,
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 16),
+              Text(
+                SkinAnalysisCopy.generalFooter,
+                textAlign: TextAlign.center,
+                style: AppTextStyles.caption.copyWith(
+                  color: AppColors.textTertiary,
+                  height: 1.35,
+                ),
+              ),
+              const SizedBox(height: 24),
               // Face frame / preview
               Expanded(
                 child: Center(
@@ -138,7 +164,21 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen>
                 ),
               ),
               if (!_isAnalyzing) ...[
-                const SizedBox(height: 20),
+                const SizedBox(height: 12),
+                CheckboxListTile(
+                  value: _photoConsent,
+                  onChanged: (v) => setState(() => _photoConsent = v ?? false),
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  title: Text(
+                    SkinAnalysisCopy.photoConsentSnippet,
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: AppColors.textSecondary,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
                 _buildTipsRow(),
                 const SizedBox(height: 24),
                 _buildActionButtons(),
@@ -355,6 +395,7 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen>
 
   Widget _buildActionButtons() {
     final hasImage = _selectedImage != null;
+    final canAnalyze = hasImage && _photoConsent;
 
     return Column(
       children: [
@@ -363,14 +404,16 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen>
           width: double.infinity,
           child: ElevatedButton.icon(
             onPressed: hasImage
-                ? _analyze
+                ? (canAnalyze ? _analyze : null)
                 : () => _pickImage(ImageSource.camera),
             icon: Icon(
               hasImage ? Icons.auto_awesome_outlined : Icons.camera_alt_outlined,
               size: 20,
             ),
             label: Text(
-              hasImage ? 'Analyze my skin' : 'Take photo',
+              hasImage
+                  ? (_photoConsent ? 'Analyze my skin' : 'Accept above to analyze')
+                  : 'Take photo',
               style: AppTextStyles.button,
             ),
             style: ElevatedButton.styleFrom(

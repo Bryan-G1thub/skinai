@@ -9,6 +9,9 @@ class FirestoreProduct {
   final List<String> concernTags;
   final List<String> skinTypeTags;
 
+  /// Combined tags used by [FirestoreProductService] queries and scoring.
+  final List<String> searchTags;
+
   const FirestoreProduct({
     required this.id,
     required this.name,
@@ -19,6 +22,7 @@ class FirestoreProduct {
     this.reason,
     this.concernTags = const [],
     this.skinTypeTags = const [],
+    this.searchTags = const [],
   });
 
   factory FirestoreProduct.fromJson(String id, Map<String, dynamic> json) {
@@ -34,6 +38,8 @@ class FirestoreProduct {
           (json['concernTags'] as List?)?.map((e) => e as String).toList() ?? const [],
       skinTypeTags:
           (json['skinTypeTags'] as List?)?.map((e) => e as String).toList() ?? const [],
+      searchTags:
+          (json['searchTags'] as List?)?.map((e) => e as String).toList() ?? const [],
     );
   }
 }

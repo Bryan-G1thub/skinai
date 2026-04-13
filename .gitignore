@@ -1,3 +1,25 @@
+.dart_tool/
+.packages
+.pub/
+build/
+
+# IDE
+.idea/
+.vscode/
+
+# Flutter / platform builds
+android/.gradle/
+android/local.properties
+ios/Flutter/ephemeral/
+macos/Flutter/ephemeral/
+windows/flutter/ephemeral/
+
+# Secrets / env
+.env
+
+# Cloudflare Wrangler local cache
+worker/.wrangler/
+
 # Miscellaneous
 *.class
 *.log

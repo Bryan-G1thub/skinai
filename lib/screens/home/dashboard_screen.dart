@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../core/constants/skin_analysis_copy.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
-import '../../models/firestore_product.dart';
 import '../../models/onboarding_data.dart';
 import '../../models/skin_analysis.dart';
 import '../../services/firestore_product_service.dart';
+import '../../services/product_knowledge_service.dart';
+import '../../services/product_recommendation_engine.dart';
+import '../../services/skin_journey_storage.dart';
+import '../../models/skin_journey_state.dart';
+import 'skin_journey_dashboard_tabs.dart';
 
 class DashboardScreen extends StatefulWidget {
   final OnboardingData data;
@@ -20,7 +25,10 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   int _selectedTab = 0;
   final FirestoreProductService _productService = FirestoreProductService();
-  late final Future<List<FirestoreProduct>> _firestoreProductsFuture;
+  late final Future<List<RankedFirestoreProduct>> _rankedProductsFuture;
+
+  SkinJourneyState _journey = const SkinJourneyState();
+  bool _journeyLoading = true;
 
   OnboardingData get data => widget.data;
   SkinAnalysis? get _analysis => data.analysis;
@@ -28,12 +36,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
-    _firestoreProductsFuture = _productService.getProductsForProfile(
+    _rankedProductsFuture = _loadRankedProducts();
+    _bootJourney();
+  }
+
+  Future<void> _bootJourney() async {
+    var raw = await SkinJourneyStorage.load();
+    final merged = SkinJourneyStorage.mergeOnboardingProducts(raw, widget.data);
+    if (merged.cabinet.length > raw.cabinet.length) {
+      await SkinJourneyStorage.save(merged);
+    }
+    if (!mounted) return;
+    setState(() {
+      _journey = merged;
+      _journeyLoading = false;
+    });
+  }
+
+  void _setJourney(SkinJourneyState next) {
+    setState(() => _journey = next);
+    SkinJourneyStorage.save(next);
+  }
+
+  Future<List<RankedFirestoreProduct>> _loadRankedProducts() async {
+    final raw = await _productService.getProductsForProfile(
       skinType: data.skinType,
       concern: data.concern,
       conditionIds: _analysis?.conditions.map((c) => c.id).toList() ?? const [],
-      limit: 8,
+      limit: 24,
     );
+    final km = ProductKnowledgeService.matchUserProducts(data.currentProducts);
+    return ProductRecommendationEngine.rank(
+      products: raw,
+      data: data,
+      analysis: _analysis,
+      knowledgeMatches: km,
+    ).take(10).toList();
   }
 
   @override
@@ -44,23 +82,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
       backgroundColor: AppColors.primaryDark,
       body: _selectedTab == 0
           ? _buildHomeBody(context)
-          : _buildComingSoonBody(
-              title: _selectedTab == 1
-                  ? 'Routine Builder'
+          : _journeyLoading
+              ? const Center(
+                  child: CircularProgressIndicator(color: AppColors.accent),
+                )
+              : _selectedTab == 1
+                  ? RoutineWorkspace(
+                      journey: _journey,
+                      profile: data,
+                      onJourneyChanged: _setJourney,
+                    )
                   : _selectedTab == 2
-                      ? 'Skin Insights'
-                      : 'Profile',
-              subtitle: _selectedTab == 1
-                  ? 'Track and optimize your AM/PM routine.'
-                  : _selectedTab == 2
-                      ? 'Daily trends and deeper skin intelligence.'
-                      : 'Preferences, goals, and account settings.',
-              icon: _selectedTab == 1
-                  ? Icons.auto_awesome_rounded
-                  : _selectedTab == 2
-                      ? Icons.insights_rounded
-                      : Icons.person_rounded,
-            ),
+                      ? InsightsWorkspace(
+                          journey: _journey,
+                          profile: data,
+                          analysis: _analysis,
+                          onJourneyChanged: _setJourney,
+                        )
+                      : CabinetProfileWorkspace(
+                          journey: _journey,
+                          profile: data,
+                          onJourneyChanged: _setJourney,
+                        ),
       bottomNavigationBar: _buildBottomNav(),
     );
   }
@@ -104,11 +147,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 topRight: Radius.circular(28),
               ),
             ),
-            child: SingleChildScrollView(
+              child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(24, 28, 24, 32),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  _buildMedicalDisclaimerBanner(),
+                  const SizedBox(height: 20),
                   _buildFocusBanner(),
                   const SizedBox(height: 28),
                   if (_analysis == null) ...[
@@ -132,56 +177,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildComingSoonBody({
-    required String title,
-    required String subtitle,
-    required IconData icon,
-  }) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Center(
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 64,
-                  height: 64,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white.withValues(alpha: 0.12),
-                  ),
-                  child: Icon(icon, color: Colors.white, size: 32),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  title,
-                  style: AppTextStyles.headlineMedium.copyWith(color: Colors.white),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  subtitle,
-                  textAlign: TextAlign.center,
-                  style: AppTextStyles.bodyMedium.copyWith(
-                    color: Colors.white.withValues(alpha: 0.75),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 
@@ -488,6 +483,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Text(label, style: AppTextStyles.headlineSmall);
   }
 
+  Widget _buildMedicalDisclaimerBanner() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+      ),
+      child: Text(
+        SkinAnalysisCopy.generalFooter,
+        style: AppTextStyles.caption.copyWith(
+          color: Colors.white.withValues(alpha: 0.78),
+          height: 1.4,
+        ),
+      ),
+    );
+  }
+
   Widget _buildAnalysisReminder() {
     return Container(
       padding: const EdgeInsets.all(14),
@@ -502,7 +516,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Upload a face photo to unlock precise skin analysis and product matching.',
+              'Add a face photo during onboarding to layer photo-based estimates on your quiz profile.',
               style: AppTextStyles.bodySmall.copyWith(color: AppColors.warning),
             ),
           ),
@@ -512,6 +526,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildRoutineCard() {
+    final am = _journey.routine.morning;
+    final pm = _journey.routine.evening;
+    final amFilled = am.where((s) => s.catalogProductId != null).length;
+    final pmFilled = pm.where((s) => s.catalogProductId != null).length;
+    final amT = am.isEmpty ? 4 : am.length;
+    final pmT = pm.isEmpty ? 3 : pm.length;
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
@@ -531,9 +551,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
             iconColor: const Color(0xFFE8B94A),
             iconBg: const Color(0xFFFDF4E0),
             title: 'Morning Routine',
-            subtitle: '3 steps · 5 min',
-            completed: 2,
-            total: 3,
+            subtitle: am.isEmpty ? 'Add steps in Routine tab' : '${am.length} steps',
+            completed: amFilled,
+            total: amT,
             isTop: true,
           ),
           Container(height: 1, color: AppColors.divider, margin: const EdgeInsets.symmetric(horizontal: 18)),
@@ -542,9 +562,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
             iconColor: AppColors.primaryLight,
             iconBg: AppColors.surfaceVariant,
             title: 'Night Routine',
-            subtitle: '4 steps · 8 min',
-            completed: 0,
-            total: 4,
+            subtitle: pm.isEmpty ? 'Add steps in Routine tab' : '${pm.length} steps',
+            completed: pmFilled,
+            total: pmT,
             isTop: false,
           ),
         ],
@@ -663,10 +683,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildProductsList() {
-    return FutureBuilder<List<FirestoreProduct>>(
-      future: _firestoreProductsFuture,
+    return FutureBuilder<List<RankedFirestoreProduct>>(
+      future: _rankedProductsFuture,
       builder: (context, snapshot) {
-        final remoteProducts = snapshot.data ?? const <FirestoreProduct>[];
+        final ranked = snapshot.data ?? const <RankedFirestoreProduct>[];
         final localProducts = (_analysis?.recommendedProducts(
               excluding: _analysis?.currentProducts ?? const [],
             ) ??
@@ -683,18 +703,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
             )
             .toList();
 
-        final products = remoteProducts.isNotEmpty
-            ? remoteProducts
+        final products = ranked.isNotEmpty
+            ? ranked
                 .map(
-                  (p) => _ProductItem(
-                    name: p.name,
-                    brand: p.brand,
-                    tag: p.category,
-                    tagColor: _tagBgColor(p.category),
-                    tagTextColor: _tagTextColor(p.category),
-                    subtitle: p.reason,
-                    imageUrl: p.imageUrl,
-                    affiliateUrl: p.affiliateUrl,
+                  (r) => _ProductItem(
+                    name: r.product.name,
+                    brand: r.product.brand,
+                    tag: r.product.category,
+                    tagColor: _tagBgColor(r.product.category),
+                    tagTextColor: _tagTextColor(r.product.category),
+                    subtitle: r.explanation.isNotEmpty
+                        ? r.explanation
+                        : r.product.reason,
+                    imageUrl: r.product.imageUrl,
+                    affiliateUrl: r.product.affiliateUrl,
                   ),
                 )
                 .toList()
@@ -702,7 +724,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
         if (products.isEmpty) {
           return Text(
-            'Complete your skin analysis to unlock recommendations.',
+            'Complete onboarding and skin analysis to unlock recommendations.',
             style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
           );
         }

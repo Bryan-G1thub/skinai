@@ -1,4 +1,6 @@
+import '../core/constants/skin_analysis_copy.dart';
 import 'onboarding_data.dart';
+import 'skin_analysis_source.dart';
 
 /// A single detected skin condition from the AI photo analysis.
 class DetectedCondition {
@@ -37,19 +39,42 @@ class SkinAnalysis {
   final List<String> priorityActions;
   final List<String> currentProducts; // filled in by routine_input_screen
 
+  /// How this result was produced (quiz-only vs photo pipeline).
+  final SkinAnalysisSource source;
+
+  /// Short labels for photo-derived estimates (if any).
+  final List<String> visionHighlights;
+
+  /// Non-medical disclaimer appropriate to [source].
+  final String? consumerDisclaimer;
+
   const SkinAnalysis({
     required this.score,
     required this.conditions,
     required this.priorityActions,
     this.currentProducts = const [],
+    this.source = SkinAnalysisSource.quizOnly,
+    this.visionHighlights = const [],
+    this.consumerDisclaimer,
   });
 
-  SkinAnalysis copyWith({List<String>? currentProducts}) {
+  SkinAnalysis copyWith({
+    int? score,
+    List<DetectedCondition>? conditions,
+    List<String>? priorityActions,
+    List<String>? currentProducts,
+    SkinAnalysisSource? source,
+    List<String>? visionHighlights,
+    String? consumerDisclaimer,
+  }) {
     return SkinAnalysis(
-      score: score,
-      conditions: conditions,
-      priorityActions: priorityActions,
+      score: score ?? this.score,
+      conditions: conditions ?? this.conditions,
+      priorityActions: priorityActions ?? this.priorityActions,
       currentProducts: currentProducts ?? this.currentProducts,
+      source: source ?? this.source,
+      visionHighlights: visionHighlights ?? this.visionHighlights,
+      consumerDisclaimer: consumerDisclaimer ?? this.consumerDisclaimer,
     );
   }
 
@@ -58,19 +83,41 @@ class SkinAnalysis {
         'conditions': conditions.map((c) => c.toJson()).toList(),
         'priorityActions': priorityActions,
         'currentProducts': currentProducts,
+        'source': source.name,
+        'visionHighlights': visionHighlights,
+        'consumerDisclaimer': consumerDisclaimer,
       };
 
-  factory SkinAnalysis.fromJson(Map<String, dynamic> json) => SkinAnalysis(
-        score: json['score'] as int,
-        conditions: (json['conditions'] as List)
-            .map((c) => DetectedCondition.fromJson(c as Map<String, dynamic>))
-            .toList(),
-        priorityActions:
-            (json['priorityActions'] as List).map((e) => e as String).toList(),
-        currentProducts:
-            (json['currentProducts'] as List?)?.map((e) => e as String).toList() ??
-                [],
-      );
+  factory SkinAnalysis.fromJson(Map<String, dynamic> json) {
+    final srcName = json['source'] as String?;
+    var source = SkinAnalysisSource.quizOnly;
+    if (srcName != null) {
+      for (final v in SkinAnalysisSource.values) {
+        if (v.name == srcName) {
+          source = v;
+          break;
+        }
+      }
+    }
+
+    return SkinAnalysis(
+      score: json['score'] as int,
+      conditions: (json['conditions'] as List)
+          .map((c) => DetectedCondition.fromJson(c as Map<String, dynamic>))
+          .toList(),
+      priorityActions:
+          (json['priorityActions'] as List).map((e) => e as String).toList(),
+      currentProducts:
+          (json['currentProducts'] as List?)?.map((e) => e as String).toList() ??
+              [],
+      source: source,
+      visionHighlights: (json['visionHighlights'] as List?)
+              ?.map((e) => e as String)
+              .toList() ??
+          const [],
+      consumerDisclaimer: json['consumerDisclaimer'] as String?,
+    );
+  }
 
   /// Generate a deterministic analysis from the user's onboarding answers.
   /// In a real app this would come from a backend AI model.
@@ -255,6 +302,9 @@ class SkinAnalysis {
       conditions: conditions,
       priorityActions: actions,
       currentProducts: data.currentProducts,
+      source: SkinAnalysisSource.quizOnly,
+      visionHighlights: const [],
+      consumerDisclaimer: SkinAnalysisCopy.quizOnlyBody,
     );
   }
 

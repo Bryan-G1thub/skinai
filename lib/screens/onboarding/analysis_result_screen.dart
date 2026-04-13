@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/constants/skin_analysis_copy.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../models/onboarding_data.dart';
 import '../../models/skin_analysis.dart';
+import '../../models/skin_analysis_source.dart';
 import '../../services/onboarding_service.dart';
 
 class AnalysisResultScreen extends StatefulWidget {
@@ -27,7 +29,7 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
   void initState() {
     super.initState();
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.dark);
-    _analysis = SkinAnalysis.generate(widget.data);
+    _analysis = widget.data.analysis ?? SkinAnalysis.generate(widget.data);
 
     _controller = AnimationController(
       duration: const Duration(milliseconds: 900),
@@ -77,6 +79,8 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    _buildDisclaimerCard(),
+                    const SizedBox(height: 12),
                     _buildScoreRow(),
                     const SizedBox(height: 28),
                     _buildDetectedSection(),
@@ -90,6 +94,37 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildDisclaimerCard() {
+    final isPhoto = _analysis.source == SkinAnalysisSource.quizWithPhotoLocalPipeline;
+    final text = _analysis.consumerDisclaimer ??
+        (isPhoto ? SkinAnalysisCopy.photoPipelineBody : SkinAnalysisCopy.quizOnlyBody);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.infoLight,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.info.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.info_outline_rounded, size: 20, color: AppColors.info),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              '$text ${SkinAnalysisCopy.generalFooter}',
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.textSecondary,
+                height: 1.45,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
