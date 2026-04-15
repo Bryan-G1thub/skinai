@@ -8,28 +8,44 @@ import '../models/onboarding_data.dart';
 import '../models/routine_plan.dart';
 import '../models/skin_journey_state.dart';
 
-const _kJourney = 'skin_journey_v1';
+const _kJourneyV2 = 'skin_journey_v2';
+const _kJourneyV1 = 'skin_journey_v1';
 
 class SkinJourneyStorage {
   SkinJourneyStorage._();
 
   static Future<SkinJourneyState> load() async {
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_kJourney);
+    final rawV2 = prefs.getString(_kJourneyV2);
+    final raw = rawV2 ?? prefs.getString(_kJourneyV1);
     if (raw == null) {
-      return SkinJourneyState(cabinet: const [], routine: const RoutinePlan(), checkIns: const []);
+      return SkinJourneyState(
+        cabinet: const [],
+        routine: const RoutinePlan(),
+        checkIns: const [],
+        photos: const [],
+      );
     }
     try {
       final map = jsonDecode(raw) as Map<String, dynamic>;
-      return SkinJourneyState.fromJson(map);
+      final state = SkinJourneyState.fromJson(map);
+      if (rawV2 == null) {
+        await save(state);
+      }
+      return state;
     } catch (_) {
-      return SkinJourneyState(cabinet: const [], routine: const RoutinePlan(), checkIns: const []);
+      return SkinJourneyState(
+        cabinet: const [],
+        routine: const RoutinePlan(),
+        checkIns: const [],
+        photos: const [],
+      );
     }
   }
 
   static Future<void> save(SkinJourneyState state) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_kJourney, jsonEncode(state.toJson()));
+    await prefs.setString(_kJourneyV2, jsonEncode(state.toJson()));
   }
 
   /// Merge onboarding routine slots and free-text products into cabinet when we can match catalog.
@@ -73,6 +89,7 @@ class SkinJourneyStorage {
 
   static Future<void> clear() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_kJourney);
+    await prefs.remove(_kJourneyV2);
+    await prefs.remove(_kJourneyV1);
   }
 }

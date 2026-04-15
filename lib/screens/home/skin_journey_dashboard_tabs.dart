@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 
 import '../../core/constants/skin_analysis_copy.dart';
 import '../../core/theme/app_colors.dart';
@@ -13,8 +15,11 @@ import '../../models/routine_evaluation.dart';
 import '../../models/skin_analysis.dart';
 import '../../models/routine_step.dart';
 import '../../models/skin_check_in.dart';
+import '../../models/progress_stats.dart';
+import '../../models/skin_photo_entry.dart';
 import '../../models/skin_journey_state.dart';
 import '../../services/onboarding_service.dart';
+import '../../services/progress_stats_engine.dart';
 import '../../services/routine_rules_engine.dart';
 import '../../services/skin_journey_storage.dart';
 
@@ -474,11 +479,34 @@ class _InsightsWorkspaceState extends State<InsightsWorkspace> {
   double _irritation = 1;
   double _breakouts = 1;
   double _moisture = 2;
+  final Set<String> _symptomTags = {};
+  final _noteController = TextEditingController();
+  String? _comparePhotoId;
+  final _picker = ImagePicker();
+
+  @override
+  void dispose() {
+    _noteController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final checkIns = [...widget.journey.checkIns]
       ..sort((a, b) => b.dateIso.compareTo(a.dateIso));
+    final hasAmPlan = widget.journey.routine.morning.isNotEmpty;
+    final hasPmPlan = widget.journey.routine.evening.isNotEmpty;
+    final stats = ProgressStatsEngine.build(
+      checkIns: widget.journey.checkIns,
+      hasAmPlan: hasAmPlan,
+      hasPmPlan: hasPmPlan,
+    );
+    final photos = [...widget.journey.photos]
+      ..sort((a, b) => b.createdAtIso.compareTo(a.createdAtIso));
+    final latestPhoto = photos.isNotEmpty ? photos.first : null;
+    final comparePhoto = _comparePhotoId == null
+        ? (photos.length > 1 ? photos[1] : null)
+        : photos.where((p) => p.id == _comparePhotoId).firstOrNull;
 
     return Container(
       decoration: SkinJourneyUi.pageGradientBg(),
@@ -497,50 +525,177 @@ class _InsightsWorkspaceState extends State<InsightsWorkspace> {
               ),
               const SizedBox(height: 6),
               Text(
-                'Quick weekly check-ins build a honest picture over time — stored only on this device.',
+                'Track routine completion and skin changes over time. Everything stays on this device.',
                 style: AppTextStyles.bodyMedium.copyWith(
                   color: AppColors.textSecondary,
                   height: 1.45,
                 ),
               ),
               const SizedBox(height: 22),
+              _buildRewards(stats),
+              const SizedBox(height: 16),
+              _buildCalendar(
+                checkIns: widget.journey.checkIns,
+                hasAmPlan: hasAmPlan,
+                hasPmPlan: hasPmPlan,
+              ),
+              const SizedBox(height: 22),
               SkinJourneyUi.glassCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('How your skin feels today', style: AppTextStyles.titleLarge),
+                    Text('Routine check-in', style: AppTextStyles.titleLarge),
                     const SizedBox(height: 16),
                     _sliderRow('Irritation', _irritation, (v) => setState(() => _irritation = v)),
                     _sliderRow('Breakouts', _breakouts, (v) => setState(() => _breakouts = v)),
                     _sliderRow('Comfort / moisture', _moisture, (v) => setState(() => _moisture = v)),
-                    const SizedBox(height: 18),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          final c = SkinCheckIn(
-                            id: _genId(),
-                            dateIso: DateTime.now().toIso8601String(),
-                            irritation: _irritation.round().clamp(0, 3),
-                            breakouts: _breakouts.round().clamp(0, 3),
-                            moistureComfort: _moisture.round().clamp(0, 3),
-                          );
-                          widget.onJourneyChanged(
-                            widget.journey.copyWith(
-                              checkIns: [c, ...widget.journey.checkIns],
-                            ),
-                          );
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Check-in saved', style: AppTextStyles.bodyMedium.copyWith(color: Colors.white)),
-                              behavior: SnackBarBehavior.floating,
-                              backgroundColor: AppColors.success,
-                            ),
-                          );
-                        },
-                        child: Text('Log check-in', style: AppTextStyles.button),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: const ['breakout', 'dryness', 'redness', 'new_product_reaction']
+                          .map((tag) => FilterChip(
+                                label: Text(tag),
+                                selected: _symptomTags.contains(tag),
+                                onSelected: (selected) {
+                                  setState(() {
+                                    if (selected) {
+                                      _symptomTags.add(tag);
+                                    } else {
+                                      _symptomTags.remove(tag);
+                                    }
+                                  });
+                                },
+                              ))
+                          .toList(),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _noteController,
+                      maxLines: 3,
+                      decoration: const InputDecoration(
+                        hintText: 'Optional note (e.g. breakout on chin after gym)',
                       ),
                     ),
+                    const SizedBox(height: 18),
+                    Row(
+                      children: [
+                        if (hasAmPlan)
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () => _saveCheckIn(CheckInPeriod.am, CheckInStatus.done),
+                              child: Text('Done AM', style: AppTextStyles.button),
+                            ),
+                          ),
+                        if (hasAmPlan && hasPmPlan) const SizedBox(width: 8),
+                        if (hasPmPlan)
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () => _saveCheckIn(CheckInPeriod.pm, CheckInStatus.done),
+                              child: Text('Done PM', style: AppTextStyles.button),
+                            ),
+                          ),
+                      ],
+                    ),
+                    if (hasAmPlan || hasPmPlan) const SizedBox(height: 8),
+                    if (hasAmPlan || hasPmPlan)
+                      Row(
+                        children: [
+                          if (hasAmPlan)
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () => _saveCheckIn(CheckInPeriod.am, CheckInStatus.skipped),
+                                child: const Text('Skip AM'),
+                              ),
+                            ),
+                          if (hasAmPlan && hasPmPlan) const SizedBox(width: 8),
+                          if (hasPmPlan)
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () => _saveCheckIn(CheckInPeriod.pm, CheckInStatus.skipped),
+                                child: const Text('Skip PM'),
+                              ),
+                            ),
+                        ],
+                      ),
+                    if (!hasAmPlan && !hasPmPlan)
+                      Text(
+                        'Add AM/PM routine steps in the Routine tab to enable completion tracking.',
+                        style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 22),
+              Text('Photo timeline', style: AppTextStyles.headlineSmall),
+              const SizedBox(height: 10),
+              SkinJourneyUi.glassCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Local-only photos for progress checks',
+                            style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
+                          ),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: _addPhoto,
+                          icon: const Icon(Icons.add_a_photo_outlined),
+                          label: const Text('Add'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    if (latestPhoto == null)
+                      Text('No photos yet.', style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textTertiary))
+                    else
+                      Column(
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(child: _photoCard('Latest', latestPhoto)),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: comparePhoto == null
+                                    ? Container()
+                                    : _photoCard('Compare', comparePhoto),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          SizedBox(
+                            height: 84,
+                            child: ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              itemBuilder: (_, i) {
+                                final p = photos[i];
+                                final selected = p.id == _comparePhotoId;
+                                return GestureDetector(
+                                  onTap: () => setState(() => _comparePhotoId = p.id),
+                                  child: Container(
+                                    width: 84,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(
+                                        color: selected ? AppColors.primary : AppColors.border,
+                                      ),
+                                      image: DecorationImage(
+                                        image: FileImage(File(p.path)),
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                              separatorBuilder: (_, __) => const SizedBox(width: 8),
+                              itemCount: photos.length,
+                            ),
+                          ),
+                        ],
+                      ),
                   ],
                 ),
               ),
@@ -553,23 +708,52 @@ class _InsightsWorkspaceState extends State<InsightsWorkspace> {
                   style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textTertiary),
                 )
               else
-                ...checkIns.take(8).map(
+                ...checkIns.take(10).map(
                       (c) => Padding(
                         padding: const EdgeInsets.only(bottom: 10),
                         child: SkinJourneyUi.glassCard(
                           padding: const EdgeInsets.all(14),
-                          child: Row(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Expanded(
-                                child: Text(
-                                  c.dateIso.substring(0, 10),
-                                  style: AppTextStyles.titleMedium,
-                                ),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      '${c.dateIso.substring(0, 10)} · ${c.period.name.toUpperCase()}',
+                                      style: AppTextStyles.titleMedium,
+                                    ),
+                                  ),
+                                  Text(
+                                    c.status == CheckInStatus.done ? 'Done' : 'Skipped',
+                                    style: AppTextStyles.bodySmall.copyWith(
+                                      color: c.status == CheckInStatus.done ? AppColors.success : AppColors.textSecondary,
+                                    ),
+                                  ),
+                                ],
                               ),
+                              const SizedBox(height: 4),
                               Text(
                                 'Irr ${c.irritation} · Break ${c.breakouts} · Moist ${c.moistureComfort}',
                                 style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
                               ),
+                              if ((c.note ?? '').trim().isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Text(c.note!.trim(), style: AppTextStyles.bodySmall),
+                              ],
+                              if (c.symptomTags.isNotEmpty) ...[
+                                const SizedBox(height: 6),
+                                Wrap(
+                                  spacing: 6,
+                                  runSpacing: 6,
+                                  children: c.symptomTags
+                                      .map((t) => Chip(
+                                            label: Text(t),
+                                            visualDensity: VisualDensity.compact,
+                                          ))
+                                      .toList(),
+                                ),
+                              ],
                             ],
                           ),
                         ),
@@ -638,6 +822,224 @@ class _InsightsWorkspaceState extends State<InsightsWorkspace> {
         ],
       ),
     );
+  }
+
+  Widget _buildRewards(ProgressStats stats) {
+    return SkinJourneyUi.glassCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Progress rewards', style: AppTextStyles.titleLarge),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(child: _metricTile('Current streak', '${stats.currentStreak} days')),
+              const SizedBox(width: 8),
+              Expanded(child: _metricTile('Best streak', '${stats.bestStreak} days')),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(child: _metricTile('7d consistency', '${(stats.completionRate7d * 100).round()}%')),
+              const SizedBox(width: 8),
+              Expanded(child: _metricTile('30d consistency', '${(stats.completionRate30d * 100).round()}%')),
+            ],
+          ),
+          if (stats.badgeIds.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: stats.badgeIds.map((b) => Chip(label: Text(_badgeLabel(b)))).toList(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _metricTile(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary)),
+          const SizedBox(height: 2),
+          Text(value, style: AppTextStyles.titleMedium),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCalendar({
+    required List<SkinCheckIn> checkIns,
+    required bool hasAmPlan,
+    required bool hasPmPlan,
+  }) {
+    final now = DateTime.now();
+    final byDay = <String, List<SkinCheckIn>>{};
+    for (final c in checkIns) {
+      final day = c.dateIso.substring(0, 10);
+      byDay.putIfAbsent(day, () => []).add(c);
+    }
+    final days = List.generate(14, (i) => DateTime(now.year, now.month, now.day).subtract(Duration(days: i))).reversed.toList();
+    return SkinJourneyUi.glassCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Last 14 days', style: AppTextStyles.titleLarge),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: days.map((d) {
+              final key = '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+              final entries = byDay[key] ?? const <SkinCheckIn>[];
+              final am = _periodState(entries, CheckInPeriod.am, hasAmPlan);
+              final pm = _periodState(entries, CheckInPeriod.pm, hasPmPlan);
+              return Container(
+                width: 46,
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Column(
+                  children: [
+                    Text('${d.day}', style: AppTextStyles.labelSmall),
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _periodDot(am),
+                        const SizedBox(width: 4),
+                        _periodDot(pm),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 8),
+          Text('Dots: AM then PM', style: AppTextStyles.caption.copyWith(color: AppColors.textTertiary)),
+        ],
+      ),
+    );
+  }
+
+  Color _periodState(List<SkinCheckIn> entries, CheckInPeriod period, bool planned) {
+    if (!planned) return AppColors.border;
+    final hit = entries.where((e) => e.period == period).toList();
+    if (hit.any((e) => e.status == CheckInStatus.done)) return AppColors.success;
+    if (hit.any((e) => e.status == CheckInStatus.skipped)) return AppColors.warning;
+    return AppColors.textTertiary;
+  }
+
+  Widget _periodDot(Color color) {
+    return Container(
+      width: 8,
+      height: 8,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+    );
+  }
+
+  Future<void> _saveCheckIn(CheckInPeriod period, CheckInStatus status) async {
+    final note = _noteController.text.trim();
+    final c = SkinCheckIn(
+      id: _genId(),
+      dateIso: DateTime.now().toIso8601String(),
+      period: period,
+      status: status,
+      planned: true,
+      irritation: _irritation.round().clamp(0, 3),
+      breakouts: _breakouts.round().clamp(0, 3),
+      moistureComfort: _moisture.round().clamp(0, 3),
+      note: note.isEmpty ? null : note,
+      symptomTags: _symptomTags.toList()..sort(),
+    );
+    widget.onJourneyChanged(
+      widget.journey.copyWith(
+        checkIns: [c, ...widget.journey.checkIns],
+      ),
+    );
+    _noteController.clear();
+    _symptomTags.clear();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Check-in saved', style: AppTextStyles.bodyMedium.copyWith(color: Colors.white)),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: AppColors.success,
+      ),
+    );
+    setState(() {});
+  }
+
+  Future<void> _addPhoto() async {
+    final picked = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+    if (picked == null) return;
+    final entry = SkinPhotoEntry(
+      id: _genId(),
+      path: picked.path,
+      createdAtIso: DateTime.now().toIso8601String(),
+      note: null,
+      linkedCheckInId: null,
+    );
+    widget.onJourneyChanged(
+      widget.journey.copyWith(photos: [entry, ...widget.journey.photos]),
+    );
+    if (!mounted) return;
+    setState(() {
+      _comparePhotoId ??= entry.id;
+    });
+  }
+
+  Widget _photoCard(String label, SkinPhotoEntry photo) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary)),
+        const SizedBox(height: 6),
+        AspectRatio(
+          aspectRatio: 1,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.file(
+              File(photo.path),
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                color: AppColors.surfaceVariant,
+                child: const Icon(Icons.broken_image_outlined),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _badgeLabel(String id) {
+    switch (id) {
+      case 'streak_3':
+        return '3-day streak';
+      case 'streak_7':
+        return '7-day streak';
+      case 'consistency_75':
+        return '75% consistency';
+      case 'checkin_20':
+        return '20 check-ins';
+      default:
+        return id;
+    }
   }
 }
 

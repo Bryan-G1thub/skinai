@@ -29,9 +29,10 @@ class LocalSkinCatalog {
       flags: {'fragrance_free', 'minimal'},
       blurb:
           'Cream non-foaming face wash; ceramides + HA. Tap card to open https://www.amazon.com/dp/B01MSSDEPK and verify price/size.',
-      affiliateUrl: _dp('B01MSSDEPK'),
+      affiliateUrl: 'https://amzn.to/3OEW3De',
+      imageUrl: 'https://m.media-amazon.com/images/I/51DbQev1thL._SL1000_.jpg',
       // Price from indexed public sources (Amazon blocks automated scrape); confirm on listing.
-      priceDisplay: r'~$15.97 (US, verify live)',
+      priceDisplay: r'$14.24',
       upc: '301871370125',
     ),
     LocalCatalogProduct(
