@@ -12,5 +12,5 @@ class SkinAnalysisCopy {
       'By analyzing a photo, you agree it may be processed on-device to estimate surface cues. We do not use it for medical diagnosis.';
 
   static const generalFooter =
-      'SkinAI provides general skincare education only. See a clinician for concerns about moles, infection, or persistent conditions.';
+      'Skiin provides general skincare education only. See a clinician for concerns about moles, infection, or persistent conditions.';
 }

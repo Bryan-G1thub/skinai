@@ -109,7 +109,7 @@ class _IntentScreenState extends State<IntentScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "What brings you\nto SkinAI?",
+                      "What brings you\nto Skiin?",
                       style: AppTextStyles.displayMedium,
                     ),
                     const SizedBox(height: 8),

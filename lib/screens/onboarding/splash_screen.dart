@@ -23,7 +23,7 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   void initState() {
     super.initState();
-    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.light);
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.dark);
 
     _controller = AnimationController(
       duration: const Duration(milliseconds: 1800),
@@ -84,55 +84,45 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.primaryDark,
+      backgroundColor: AppColors.background,
       body: AnnotatedRegion<SystemUiOverlayStyle>(
-        value: SystemUiOverlayStyle.light,
+        value: SystemUiOverlayStyle.dark,
         child: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Color(0xFF2A1260),
-                AppColors.primaryDark,
+                AppColors.background,
+                AppColors.surfaceVariant,
               ],
             ),
           ),
           child: SafeArea(
             child: Stack(
               children: [
-                // Background decorative glow
+                // Background accents
                 Positioned(
-                  top: -80,
-                  right: -60,
+                  top: 150,
+                  right: 80,
                   child: Container(
-                    width: 300,
-                    height: 300,
+                    width: 5,
+                    height: 5,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      gradient: RadialGradient(
-                        colors: [
-                          AppColors.primaryLight.withValues(alpha: 0.18),
-                          Colors.transparent,
-                        ],
-                      ),
+                      color: AppColors.textTertiary.withValues(alpha: 0.35),
                     ),
                   ),
                 ),
                 Positioned(
-                  bottom: -40,
-                  left: -80,
+                  bottom: 220,
+                  left: 86,
                   child: Container(
-                    width: 280,
-                    height: 280,
+                    width: 4,
+                    height: 4,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      gradient: RadialGradient(
-                        colors: [
-                          AppColors.accent.withValues(alpha: 0.12),
-                          Colors.transparent,
-                        ],
-                      ),
+                      color: AppColors.textTertiary.withValues(alpha: 0.25),
                     ),
                   ),
                 ),
@@ -179,7 +169,7 @@ class _SplashScreenState extends State<SplashScreen>
                         'v1.0',
                         textAlign: TextAlign.center,
                         style: AppTextStyles.caption.copyWith(
-                          color: Colors.white.withValues(alpha: 0.35),
+                          color: AppColors.textTertiary,
                         ),
                       ),
                     ),
@@ -199,16 +189,13 @@ class _SplashScreenState extends State<SplashScreen>
       height: 96,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(28),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF9B72F0), Color(0xFF6B4EFF)],
-        ),
+        color: AppColors.primary,
+        border: Border.all(color: AppColors.border),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.5),
-            blurRadius: 32,
-            offset: const Offset(0, 12),
+            color: AppColors.shadowMedium,
+            blurRadius: 18,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
@@ -226,10 +213,10 @@ class _SplashScreenState extends State<SplashScreen>
     return Column(
       children: [
         Text(
-          'SkinAI',
+          'SkinSignal',
           style: AppTextStyles.displayLarge.copyWith(
-            color: Colors.white,
-            fontWeight: FontWeight.w700,
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w600,
             fontSize: 40,
             letterSpacing: -1.0,
           ),
@@ -238,7 +225,7 @@ class _SplashScreenState extends State<SplashScreen>
         Text(
           'Your skin, elevated.',
           style: AppTextStyles.bodyLarge.copyWith(
-            color: Colors.white.withValues(alpha: 0.6),
+            color: AppColors.textSecondary,
           ),
         ),
       ],

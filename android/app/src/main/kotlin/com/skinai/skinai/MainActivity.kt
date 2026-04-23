@@ -1,4 +1,4 @@
-package com.skinai.skinai
+package com.skiin.skiin
 
 import io.flutter.embedding.android.FlutterActivity
 

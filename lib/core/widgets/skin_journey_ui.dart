@@ -13,9 +13,9 @@ class SkinJourneyUi {
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [
-          Color(0xFFF8F6FF),
-          Color(0xFFFDFCFA),
-          Color(0xFFF5F0EB),
+          AppColors.background,
+          AppColors.surface,
+          AppColors.surfaceVariant,
         ],
         stops: [0.0, 0.45, 1.0],
       ),

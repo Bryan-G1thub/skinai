@@ -1,4 +1,4 @@
-# skinai
+# skiin
 
 A new Flutter project.
 

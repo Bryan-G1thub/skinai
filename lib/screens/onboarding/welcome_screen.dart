@@ -34,54 +34,12 @@ class _WelcomeScreenState extends State<WelcomeScreen>
 
   static const List<String> _keywords = [
     'Hydrate',
+    'Protect',
     'Balance',
     'Glow',
-    'Calm',
-    'Protect',
   ];
 
-  static const List<TextStyle Function()> _keywordStyles = [
-    _stylePlayfair,
-    _styleCormorant,
-    _styleFraunces,
-    _styleDmSerif,
-    _styleLora,
-  ];
-
-  static TextStyle _stylePlayfair() => GoogleFonts.playfairDisplay(
-        fontSize: 44,
-        fontWeight: FontWeight.w600,
-        color: const Color(0xFFF5EDE4),
-        height: 1.05,
-      );
-
-  static TextStyle _styleCormorant() => GoogleFonts.cormorantGaramond(
-        fontSize: 52,
-        fontWeight: FontWeight.w600,
-        fontStyle: FontStyle.italic,
-        color: const Color(0xFFE8D5C4),
-        height: 1.0,
-      );
-
-  static TextStyle _styleFraunces() => GoogleFonts.fraunces(
-        fontSize: 46,
-        fontWeight: FontWeight.w500,
-        color: const Color(0xFFF0E6DC),
-        height: 1.05,
-      );
-
-  static TextStyle _styleDmSerif() => GoogleFonts.dmSerifDisplay(
-        fontSize: 48,
-        color: const Color(0xFFE5D9CE),
-        height: 1.0,
-      );
-
-  static TextStyle _styleLora() => GoogleFonts.lora(
-        fontSize: 42,
-        fontWeight: FontWeight.w500,
-        color: const Color(0xFFF2E8DF),
-        height: 1.05,
-      );
+  String get _currentKeyword => _keywords[_keywordIndex % _keywords.length];
 
   void _ensureIntro() {
     if (_intro != null) return;
@@ -138,7 +96,8 @@ class _WelcomeScreenState extends State<WelcomeScreen>
   @override
   void initState() {
     super.initState();
-    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.light);
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.dark);
+    _keywordIndex = _keywordIndex % _keywords.length;
     _ensureIntro();
   }
 
@@ -155,7 +114,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
     final bottomInset = MediaQuery.paddingOf(context).bottom;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0E0A12),
+      backgroundColor: AppColors.background,
       body: AnimatedBuilder(
         animation: _intro!,
         builder: (context, child) {
@@ -181,6 +140,14 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                               height: constraints.maxHeight * 0.52,
                               child: _buildHeroStage(),
                             ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 28),
+                              child: Divider(
+                                color: AppColors.border.withValues(alpha: 0.9),
+                                thickness: 1,
+                                height: 1,
+                              ),
+                            ),
                             _buildLowerSheet(bottomInset),
                           ],
                         ),
@@ -205,66 +172,83 @@ class _WelcomeScreenState extends State<WelcomeScreen>
         DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
               colors: [
-                Color.lerp(
-                  const Color(0xFF08060A),
-                  const Color(0xFF1E1630),
-                  wash,
-                )!,
-                Color.lerp(
-                  const Color(0xFF120E18),
-                  const Color(0xFF2D2445),
-                  wash,
-                )!,
-                const Color(0xFF15101C),
+                Color.lerp(AppColors.background, AppColors.surfaceVariant, wash)!,
+                Color.lerp(AppColors.background, AppColors.surface, wash)!,
               ],
-              stops: const [0.0, 0.55, 1.0],
+              stops: const [0.0, 1.0],
             ),
           ),
         ),
         Positioned(
-          top: -40,
-          right: -30,
+          top: 120,
+          left: 80,
           child: Opacity(
-            opacity: 0.35 + 0.25 * wash,
+            opacity: 0.16 + 0.1 * wash,
             child: Transform.translate(
-              offset: Offset(20 * (1 - orb), -15 * (1 - orb)),
+              offset: Offset(6 * (1 - orb), 10 * (1 - orb)),
               child: Container(
-                width: 220,
-                height: 220,
+                width: 5,
+                height: 5,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      AppColors.primaryLight.withValues(alpha: 0.45),
-                      Colors.transparent,
-                    ],
-                  ),
+                  color: AppColors.textTertiary,
                 ),
               ),
             ),
           ),
         ),
         Positioned(
-          bottom: MediaQuery.of(context).size.height * 0.42,
-          left: -50,
+          top: 150,
+          right: 60,
           child: Opacity(
-            opacity: 0.2 + 0.2 * wash,
+            opacity: 0.12 + 0.1 * wash,
             child: Transform.translate(
-              offset: Offset(-25 * (1 - orb), 10 * orb),
+              offset: Offset(-6 * (1 - orb), 8 * orb),
               child: Container(
-                width: 180,
-                height: 180,
+                width: 4,
+                height: 4,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      AppColors.accent.withValues(alpha: 0.35),
-                      Colors.transparent,
-                    ],
-                  ),
+                  color: AppColors.textTertiary,
+                ),
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          top: 248,
+          left: 56,
+          child: Opacity(
+            opacity: 0.14 + 0.08 * wash,
+            child: Transform.translate(
+              offset: Offset(6 * orb, -4 * (1 - orb)),
+              child: Container(
+                width: 3,
+                height: 3,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.textTertiary,
+                ),
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          top: 278,
+          right: 90,
+          child: Opacity(
+            opacity: 0.15 + 0.08 * wash,
+            child: Transform.translate(
+              offset: Offset(-5 * orb, 3 * (1 - orb)),
+              child: Container(
+                width: 3,
+                height: 3,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.textTertiary,
                 ),
               ),
             ),
@@ -285,12 +269,12 @@ class _WelcomeScreenState extends State<WelcomeScreen>
             child: Transform.translate(
               offset: Offset(0, 24 * (1 - _keywordReveal!.value)),
               child: Text(
-                'SKINAI',
+                'SKINSIGNAL',
                 style: GoogleFonts.inter(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 4,
-                  color: Colors.white.withValues(alpha: 0.45),
+                  color: AppColors.textTertiary.withValues(alpha: 0.9),
                 ),
               ),
             ),
@@ -310,18 +294,24 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 550),
-                      switchInCurve: Curves.easeOut,
-                      switchOutCurve: Curves.easeIn,
+                      duration: const Duration(milliseconds: 700),
+                      switchInCurve: Curves.easeOutCubic,
+                      switchOutCurve: Curves.easeInCubic,
                       transitionBuilder: (child, anim) {
-                        return FadeTransition(
-                          opacity: anim,
-                          child: SlideTransition(
-                            position: Tween<Offset>(
-                              begin: const Offset(0, 0.15),
-                              end: Offset.zero,
-                            ).animate(anim),
-                            child: child,
+                        final isCurrent = child.key == ValueKey<int>(_keywordIndex);
+                        final position = isCurrent
+                            ? Tween<Offset>(
+                                begin: const Offset(0, -0.14),
+                                end: Offset.zero,
+                              ).animate(anim)
+                            : Tween<Offset>(
+                                begin: const Offset(0, 0.16),
+                                end: Offset.zero,
+                              ).animate(anim);
+                        return ClipRect(
+                          child: FadeTransition(
+                            opacity: anim,
+                            child: SlideTransition(position: position, child: child),
                           ),
                         );
                       },
@@ -330,8 +320,14 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                         fit: BoxFit.scaleDown,
                         alignment: Alignment.centerLeft,
                         child: Text(
-                          _keywords[_keywordIndex],
-                          style: _keywordStyles[_keywordIndex % _keywordStyles.length](),
+                          _currentKeyword,
+                          style: GoogleFonts.inter(
+                            fontSize: 64,
+                            fontWeight: FontWeight.w300,
+                            color: AppColors.accent,
+                            letterSpacing: -1.2,
+                            height: 1.0,
+                          ),
                         ),
                       ),
                     ),
@@ -350,8 +346,8 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                 borderRadius: BorderRadius.circular(2),
                 gradient: LinearGradient(
                   colors: [
-                    AppColors.accent,
-                    AppColors.accent.withValues(alpha: 0.2),
+                    AppColors.border,
+                    AppColors.border.withValues(alpha: 0.35),
                   ],
                 ),
               ),
@@ -370,17 +366,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
         opacity: _panelRise!.value.clamp(0.0, 1.0),
         child: Container(
           width: double.infinity,
-          decoration: const BoxDecoration(
-            color: Color(0xFFF7F2EC),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-            boxShadow: [
-              BoxShadow(
-                color: Color(0x40000000),
-                blurRadius: 40,
-                offset: Offset(0, -8),
-              ),
-            ],
-          ),
+          color: AppColors.background,
           padding: EdgeInsets.fromLTRB(28, 36, 28, 28 + bottomInset),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -430,7 +416,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                             extra: const OnboardingData(),
                           ),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF1C1826),
+                            backgroundColor: AppColors.primary,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 20),
                             shape: RoundedRectangleBorder(

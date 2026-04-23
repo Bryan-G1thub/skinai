@@ -86,7 +86,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.light);
 
     return Scaffold(
-      backgroundColor: AppColors.primaryDark,
+      backgroundColor: AppColors.background,
       body: _selectedTab == 0
           ? _buildHomeBody(context)
           : _journeyLoading
@@ -124,7 +124,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFF2E1270), Color(0xFF1E0C52)],
+              colors: [AppColors.primary, AppColors.primaryLight],
             ),
           ),
           child: SafeArea(
@@ -202,7 +202,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         margin: const EdgeInsets.fromLTRB(16, 0, 16, 14),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
-          color: const Color(0xFF24105A),
+          color: AppColors.primary,
           borderRadius: BorderRadius.circular(22),
           border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
           boxShadow: const [
@@ -406,13 +406,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       const Icon(
                         Icons.trending_up_rounded,
                         size: 14,
-                        color: Color(0xFF5CE8A4),
+                        color: AppColors.accentLight,
                       ),
                       const SizedBox(width: 4),
                       Text(
                         '+5 this week',
                         style: AppTextStyles.labelSmall.copyWith(
-                          color: const Color(0xFF5CE8A4),
+                          color: AppColors.accentLight,
                           letterSpacing: 0.2,
                         ),
                       ),
@@ -434,7 +434,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF6B4EFF), AppColors.primary],
+          colors: [AppColors.accent, AppColors.primary],
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
         ),
@@ -563,8 +563,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         children: [
           _buildRoutineRow(
             icon: Icons.wb_sunny_outlined,
-            iconColor: const Color(0xFFE8B94A),
-            iconBg: const Color(0xFFFDF4E0),
+            iconColor: AppColors.accent,
+            iconBg: AppColors.surfaceVariant,
             title: 'Morning Routine',
             subtitle: am.isEmpty ? 'Add steps in Routine tab' : '${am.length} steps',
             completed: amFilled,

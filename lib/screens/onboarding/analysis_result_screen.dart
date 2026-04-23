@@ -135,7 +135,7 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF2E1270), Color(0xFF1E0C52)],
+          colors: [AppColors.primary, AppColors.primaryLight],
         ),
       ),
       child: SafeArea(
@@ -158,12 +158,12 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const Icon(Icons.check_circle_outline,
-                        size: 13, color: Color(0xFF5CE8A4)),
+                        size: 13, color: AppColors.accentLight),
                     const SizedBox(width: 5),
                     Text(
                       'ANALYSIS COMPLETE',
                       style: AppTextStyles.labelSmall.copyWith(
-                        color: const Color(0xFF5CE8A4),
+                        color: AppColors.accentLight,
                         letterSpacing: 0.8,
                       ),
                     ),

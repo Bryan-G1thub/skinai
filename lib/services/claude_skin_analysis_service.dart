@@ -9,7 +9,7 @@ import '../models/skin_analysis.dart';
 import '../models/skin_analysis_source.dart';
 import 'skin_vision_analysis_service.dart';
 
-const String _proxyUrl = 'https://skinai-proxy.skinai.workers.dev';
+const String _proxyUrl = 'https://skiin-proxy.skiin.workers.dev';
 
 class ClaudeSkinAnalysisService implements SkinVisionAnalysisService {
   const ClaudeSkinAnalysisService({

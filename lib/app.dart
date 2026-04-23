@@ -107,13 +107,13 @@ final _router = GoRouter(
   ],
 );
 
-class SkinAIApp extends StatelessWidget {
-  const SkinAIApp({super.key});
+class SkiinApp extends StatelessWidget {
+  const SkiinApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
-      title: 'SkinAI',
+      title: 'Skiin',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       routerConfig: _router,
